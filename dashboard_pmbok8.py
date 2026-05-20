@@ -207,29 +207,70 @@ def carregar_dados(arquivo_excel=None) -> pd.DataFrame:
         "Projeto": "Projeto", "Project": "Projeto",
         "Portfólio": "Portfolio", "Portfolio": "Portfolio",
     }
-    df_raw.rename(columns={k: v for k, v in col_map.items() if k in df_raw.columns}, inplace=True)
+    # Mapeamento adicional para nomes alternativos comuns no MS Project PT-BR
+    col_map_extra = {
+        "Nome": "Nome da Tarefa",
+        "Id": "ID", "ID": "ID",
+        "Ativo": "Marco",  # Será refinado abaixo
+        "Predecessoras": "Precedentes",
+        "Nível da estrutura de tópicos": "Nivel",
+        "Anotações": "Anotacoes",
+    }
+    df_raw.rename(columns={k: v for k, v in col_map_extra.items() if k in df_raw.columns}, inplace=True)
 
-    # Garante colunas opcionais
+    # Nome da Tarefa — fallback para coluna "Nome" já renomeada
+    if "Nome da Tarefa" not in df_raw.columns:
+        for alt in ["Nome", "Task Name", "Name"]:
+            if alt in df_raw.columns:
+                df_raw.rename(columns={alt: "Nome da Tarefa"}, inplace=True)
+                break
+
+    # Garante colunas obrigatórias com valores padrão se não existirem
+    nome_arquivo = getattr(arquivo_excel, "name", "Projeto")
+    nome_projeto = nome_arquivo.replace(".xlsx","").replace(".xls","")
+
     defaults = {
-        "Portfolio": "", "Projeto": "", "Tipo": "Tarefa",
-        "Termino_Baseline": df_raw.get("Termino", pd.Series(dtype="object")),
-        "Responsavel": "", "Causa_Raiz": "", "Plano_Acao": "",
+        "Portfolio":  "Portfólio Geral",
+        "Projeto":    nome_projeto,
+        "Tipo":       "Tarefa",
+        "Responsavel": "",
+        "Causa_Raiz":  "",
+        "Plano_Acao":  "",
         "Pct_Concluida": 0.0,
+        "AC": 0.0, "PV": 0.0, "EV": 0.0,
     }
     for col, val in defaults.items():
         if col not in df_raw.columns:
             df_raw[col] = val
+
+    # Termino_Baseline = Termino se não existir coluna de baseline
+    if "Termino_Baseline" not in df_raw.columns:
+        df_raw["Termino_Baseline"] = df_raw["Termino"]
 
     # Converte % para decimal se vier como inteiro (ex: 75 → 0.75)
     df_raw["Pct_Concluida"] = pd.to_numeric(df_raw["Pct_Concluida"], errors="coerce").fillna(0)
     if df_raw["Pct_Concluida"].max() > 1:
         df_raw["Pct_Concluida"] = df_raw["Pct_Concluida"] / 100
 
-    # Normaliza coluna Marco — cria como False se não existir no Excel
+    # Detecta marcos pelo Nível da estrutura (nível 1 = fase, nível 0 = sumário)
+    # e pela duração zero (padrão MS Project para marcos)
     if "Marco" not in df_raw.columns:
-        df_raw["Marco"] = False
+        if "Duração" in df_raw.columns:
+            df_raw["Marco"] = df_raw["Duração"].astype(str).str.strip().isin(["0", "0 dias", "0d"])
+        else:
+            df_raw["Marco"] = False
     else:
         df_raw["Marco"] = df_raw["Marco"].astype(str).str.lower().isin(["sim", "true", "1", "yes"])
+
+    # Define Tipo com base no Nível da estrutura de tópicos
+    if "Nivel" in df_raw.columns:
+        df_raw["Nivel"] = pd.to_numeric(df_raw["Nivel"], errors="coerce").fillna(99)
+        df_raw["Tipo"] = df_raw.apply(
+            lambda r: "Marco" if r["Marco"]
+            else ("Fase" if r["Nivel"] <= 1 else "Tarefa"), axis=1
+        )
+    else:
+        df_raw["Tipo"] = df_raw["Marco"].apply(lambda m: "Marco" if m else "Tarefa")
 
     # Calcula EVM com função vetorial segura
     df_raw = calcular_evm(df_raw)
