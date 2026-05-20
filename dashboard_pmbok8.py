@@ -173,20 +173,39 @@ def carregar_dados(arquivo_excel=None) -> pd.DataFrame:
 
     df_raw = pd.read_excel(arquivo_excel)
 
-    # Normaliza nomes de colunas (remove espaços extras e padroniza)
+    # Normaliza nomes de colunas (remove espaços extras)
     df_raw.columns = df_raw.columns.str.strip()
+
+    # ── DIAGNÓSTICO: mostra colunas encontradas ───────────────────────────────
+    with st.expander("🔍 Diagnóstico: colunas encontradas no Excel", expanded=True):
+        st.markdown("**Colunas detectadas no arquivo:**")
+        cols_encontradas = list(df_raw.columns)
+        st.code("\n".join([f"{i+1:02d}. {c}" for i, c in enumerate(cols_encontradas)]))
+        st.markdown("**Primeiras 3 linhas de dados:**")
+        st.dataframe(df_raw.head(3), use_container_width=True)
+        st.info(
+            "📋 Cole aqui os nomes das colunas acima no chat para que o sistema "
+            "mapeie corretamente as colunas de Início, Término, % Concluída, PV, EV e AC."
+        )
 
     # Mapeamento flexível de colunas do MS Project → nomes internos
     col_map = {
-        "Início": "Inicio", "Inicio": "Inicio",
-        "Término": "Termino", "Termino": "Termino",
+        "Início": "Inicio", "Inicio": "Inicio", "Start": "Inicio",
+        "Término": "Termino", "Termino": "Termino", "Finish": "Termino",
         "% concluída": "Pct_Concluida", "% Concluída": "Pct_Concluida",
+        "% Complete": "Pct_Concluida", "Percentual Concluído": "Pct_Concluida",
+        "% Completo": "Pct_Concluida", "Pct Concluída": "Pct_Concluida",
         "Custo Real (CR)": "AC", "AC": "AC", "Custo Real": "AC",
-        "COTA": "PV", "PV": "PV",
-        "COTR": "EV", "EV": "EV",
-        "Nomes dos Recursos": "Recursos",
-        "Nome da Tarefa": "Nome da Tarefa",
-        "Marco": "Marco",
+        "Actual Cost": "AC", "ACWP": "AC",
+        "COTA": "PV", "PV": "PV", "Custo Planejado": "PV",
+        "Baseline Cost": "PV", "BCWS": "PV",
+        "COTR": "EV", "EV": "EV", "Custo Realizado": "EV",
+        "Earned Value": "EV", "BCWP": "EV",
+        "Nomes dos Recursos": "Recursos", "Resource Names": "Recursos",
+        "Nome da Tarefa": "Nome da Tarefa", "Task Name": "Nome da Tarefa", "Name": "Nome da Tarefa",
+        "Marco": "Marco", "Milestone": "Marco",
+        "Projeto": "Projeto", "Project": "Projeto",
+        "Portfólio": "Portfolio", "Portfolio": "Portfolio",
     }
     df_raw.rename(columns={k: v for k, v in col_map.items() if k in df_raw.columns}, inplace=True)
 
