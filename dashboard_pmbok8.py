@@ -407,7 +407,7 @@ else:
             textposition="inside", insidetextanchor="middle",
             hovertemplate=(f"<b>{row['Nome da Tarefa']}</b><br>"
                            f"Início: {row['Inicio_str']}<br>Término: {row['Termino_str']}<br>"
-                           f"SPI: {row['SPI']:.2f if not pd.isna(row['SPI']) else 'N/A'}<br>"
+                           f"SPI: {f'{spi_val:.2f}'}<br>"
                            f"Avanço: {row['Pct_Concluida']*100:.0f}%<extra></extra>"),
             showlegend=False,
         ))
