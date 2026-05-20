@@ -1,12 +1,9 @@
 # =============================================================================
 # DASHBOARD EXECUTIVO DE PORTFÓLIO — PMBOK 8ª EDIÇÃO
-# Foco: Entrega de Valor | EVM | Roadmap | Gestão de Riscos
-# Framework: Streamlit
+# Layout: Arquitetura Executiva para Diretoria
 # =============================================================================
-# INSTALAÇÃO:
-#   pip install streamlit pandas plotly openpyxl
-# EXECUÇÃO:
-#   streamlit run dashboard_pmbok8.py
+# INSTALAÇÃO:  pip install streamlit pandas plotly openpyxl
+# EXECUÇÃO:    streamlit run dashboard_pmbok8.py
 # =============================================================================
 
 import streamlit as st
@@ -20,68 +17,120 @@ import io
 # 0. CONFIGURAÇÃO DA PÁGINA
 # ──────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Dashboard Executivo | Portfólio",
+    page_title="Governança de Portfólio | Diretoria",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown("""
 <style>
-    .stApp { background-color: #F4F6F9; }
-    section[data-testid="stSidebar"] { background-color: #1B2A4A; }
-    section[data-testid="stSidebar"] * { color: #FFFFFF !important; }
-    .kpi-card {
-        background: #FFFFFF; border-radius: 10px;
-        padding: 20px 24px; border-left: 4px solid #1B2A4A;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    /* ── Base ── */
+    .stApp { background-color: #F0F2F6; }
+    .block-container { padding: 1.5rem 2rem 2rem 2rem !important; }
+
+    /* ── Cabeçalho ── */
+    .header-bar {
+        background: #0D1B2A;
+        border-radius: 12px;
+        padding: 18px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
     }
-    .kpi-label { font-size: 12px; color: #6B7A99; font-weight: 600;
-                 text-transform: uppercase; letter-spacing: .5px; }
-    .kpi-value { font-size: 32px; font-weight: 700; color: #1B2A4A; line-height: 1.2; }
-    .kpi-sub   { font-size: 12px; color: #9AA5BE; margin-top: 4px; }
-    .badge-green  { background:#E6F4EA; color:#1E7E34; padding:3px 10px;
-                    border-radius:12px; font-size:12px; font-weight:600; }
-    .badge-yellow { background:#FFF8E1; color:#B8860B; padding:3px 10px;
-                    border-radius:12px; font-size:12px; font-weight:600; }
-    .badge-red    { background:#FDECEA; color:#C62828; padding:3px 10px;
-                    border-radius:12px; font-size:12px; font-weight:600; }
-    .section-title {
-        font-size: 13px; font-weight: 700; color: #6B7A99;
+    .header-title {
+        font-size: 20px; font-weight: 700;
+        color: #FFFFFF; letter-spacing: .5px;
+    }
+    .header-sub { font-size: 12px; color: #8A9BB5; margin-top: 2px; }
+
+    /* ── Cards KPI ── */
+    .kpi-wrap {
+        background: #FFFFFF;
+        border-radius: 12px;
+        padding: 22px 24px 18px 24px;
+        border-top: 4px solid #0D1B2A;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+        height: 100%;
+    }
+    .kpi-label {
+        font-size: 11px; font-weight: 700; color: #8A9BB5;
+        text-transform: uppercase; letter-spacing: .8px;
+    }
+    .kpi-value {
+        font-size: 42px; font-weight: 800;
+        color: #0D1B2A; line-height: 1.1; margin: 6px 0 4px 0;
+    }
+    .kpi-sub { font-size: 12px; color: #B0BAD0; }
+
+    /* ── Seções ── */
+    .section-box {
+        background: #FFFFFF;
+        border-radius: 12px;
+        padding: 22px 26px;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+        margin-bottom: 18px;
+    }
+    .section-header {
+        font-size: 11px; font-weight: 700; color: #8A9BB5;
         text-transform: uppercase; letter-spacing: 1px;
-        margin: 28px 0 12px 0; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;
+        border-bottom: 1px solid #E8ECF3;
+        padding-bottom: 10px; margin-bottom: 16px;
     }
+
+    /* ── Badges ── */
+    .badge {
+        display: inline-block;
+        padding: 3px 12px; border-radius: 20px;
+        font-size: 11px; font-weight: 700;
+    }
+    .badge-green  { background:#E6F4EA; color:#1E7E34; }
+    .badge-yellow { background:#FFF8E1; color:#B8860B; }
+    .badge-red    { background:#FDECEA; color:#C62828; }
+    .badge-gray   { background:#F0F2F6; color:#6B7A99; }
+
+    /* ── Tabela críticos ── */
+    .crit-row {
+        background: #FDECEA;
+        border-left: 4px solid #C62828;
+        border-radius: 0 8px 8px 0;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+    }
+    .crit-title { font-weight: 700; font-size: 14px; color: #0D1B2A; }
+    .crit-meta  { font-size: 12px; color: #6B7A99; margin-top: 2px; }
+
+    /* ── Sidebar ── */
+    section[data-testid="stSidebar"] { background-color: #0D1B2A; }
+    section[data-testid="stSidebar"] * { color: #FFFFFF !important; }
+
+    /* Oculta toolbar dos gráficos */
+    .modebar { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 1. FUNÇÕES EVM — sem uso de .apply() para evitar KeyError
+# 1. FUNÇÕES EVM — vetorial (sem .apply para evitar KeyError)
 # ──────────────────────────────────────────────────────────────────────────────
 def calcular_evm(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calcula SPI, SV e CPI usando operações vetoriais do numpy.
-    Evita o erro KeyError que ocorre com pandas.apply() em certas versões.
-    """
     for col in ["EV", "PV", "AC"]:
         if col not in df.columns:
             df[col] = 0.0
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
 
-    # SPI = EV / PV  (0 quando PV = 0)
     df["SPI"] = np.where(df["PV"] > 0, (df["EV"] / df["PV"]).round(3), np.nan)
-    # SV  = EV - PV
     df["SV"]  = df["EV"] - df["PV"]
-    # CPI = EV / AC  (0 quando AC = 0)
     df["CPI"] = np.where(df["AC"] > 0, (df["EV"] / df["AC"]).round(3), np.nan)
 
-    def status_spi(s):
-        if pd.isna(s):   return "N/A"
-        if s >= 1.0:     return "🟢 No Prazo"
-        if s >= 0.90:    return "🟡 Atenção"
+    def status(s):
+        if pd.isna(s): return "N/A"
+        if s >= 1.0:   return "🟢 No Prazo"
+        if s >= 0.90:  return "🟡 Atenção"
         return "🔴 Crítico"
 
-    df["Status_SPI"] = df["SPI"].apply(status_spi)
+    df["Status_SPI"] = df["SPI"].apply(status)
     return df
 
 
@@ -92,75 +141,65 @@ def calcular_evm(df: pd.DataFrame) -> pd.DataFrame:
 def carregar_dados_mock() -> pd.DataFrame:
     hoje = date.today()
     dados = [
-        {"Portfolio":"Transformação Digital","Projeto":"ERP Cloud Migration",
-         "ID":1,"Nome da Tarefa":"ERP Cloud Migration","Tipo":"Fase",
-         "Inicio":hoje-timedelta(120),"Termino":hoje+timedelta(60),
-         "Termino_Baseline":hoje+timedelta(50),"Pct_Concluida":0.62,
-         "AC":850000,"PV":780000,"EV":700000,"Marco":False,
-         "Recursos":"Ana Costa","Responsavel":"Ana Costa","Causa_Raiz":"","Plano_Acao":""},
-
-        {"Portfolio":"Transformação Digital","Projeto":"ERP Cloud Migration",
-         "ID":2,"Nome da Tarefa":"Migração de Dados","Tipo":"Tarefa",
-         "Inicio":hoje-timedelta(60),"Termino":hoje+timedelta(10),
-         "Termino_Baseline":hoje-timedelta(5),"Pct_Concluida":0.45,
-         "AC":210000,"PV":190000,"EV":160000,"Marco":False,
-         "Recursos":"João Lima","Responsavel":"João Lima","Causa_Raiz":"","Plano_Acao":""},
-
-        {"Portfolio":"Transformação Digital","Projeto":"ERP Cloud Migration",
-         "ID":3,"Nome da Tarefa":"Go-Live ERP","Tipo":"Marco",
+        {"Portfolio":"Portfólio Geral","Projeto":"ERP Cloud Migration","ID":1,
+         "Nome da Tarefa":"ERP — Fase 1: Planejamento","Tipo":"Fase","Nivel":1,
+         "Inicio":hoje-timedelta(120),"Termino":hoje-timedelta(30),
+         "Termino_Baseline":hoje-timedelta(30),"Pct_Concluida":1.0,
+         "AC":420000,"PV":400000,"EV":400000,"Marco":False,"Recursos":"Ana Costa","Responsavel":"Ana Costa"},
+        {"Portfolio":"Portfólio Geral","Projeto":"ERP Cloud Migration","ID":2,
+         "Nome da Tarefa":"ERP — Fase 2: Implementação","Tipo":"Fase","Nivel":1,
+         "Inicio":hoje-timedelta(30),"Termino":hoje+timedelta(60),
+         "Termino_Baseline":hoje+timedelta(45),"Pct_Concluida":0.38,
+         "AC":430000,"PV":380000,"EV":300000,"Marco":False,"Recursos":"Ana Costa","Responsavel":"Ana Costa"},
+        {"Portfolio":"Portfólio Geral","Projeto":"ERP Cloud Migration","ID":3,
+         "Nome da Tarefa":"Kickoff ERP","Tipo":"Marco","Nivel":2,
+         "Inicio":hoje-timedelta(120),"Termino":hoje-timedelta(120),
+         "Termino_Baseline":hoje-timedelta(120),"Pct_Concluida":1.0,
+         "AC":0,"PV":0,"EV":0,"Marco":True,"Recursos":"Ana Costa","Responsavel":"Ana Costa"},
+        {"Portfolio":"Portfólio Geral","Projeto":"ERP Cloud Migration","ID":4,
+         "Nome da Tarefa":"Go-Live ERP","Tipo":"Marco","Nivel":2,
          "Inicio":hoje+timedelta(60),"Termino":hoje+timedelta(60),
-         "Termino_Baseline":hoje+timedelta(50),"Pct_Concluida":0.0,
-         "AC":0,"PV":0,"EV":0,"Marco":True,
-         "Recursos":"Ana Costa","Responsavel":"Ana Costa","Causa_Raiz":"","Plano_Acao":""},
-
-        {"Portfolio":"Transformação Digital","Projeto":"Data Analytics Platform",
-         "ID":4,"Nome da Tarefa":"Data Analytics Platform","Tipo":"Fase",
-         "Inicio":hoje-timedelta(90),"Termino":hoje+timedelta(90),
-         "Termino_Baseline":hoje+timedelta(90),"Pct_Concluida":0.50,
-         "AC":420000,"PV":400000,"EV":410000,"Marco":False,
-         "Recursos":"Maria Souza","Responsavel":"Maria Souza","Causa_Raiz":"","Plano_Acao":""},
-
-        {"Portfolio":"Transformação Digital","Projeto":"Data Analytics Platform",
-         "ID":5,"Nome da Tarefa":"Lançamento MVP Analytics","Tipo":"Marco",
-         "Inicio":hoje+timedelta(30),"Termino":hoje+timedelta(30),
-         "Termino_Baseline":hoje+timedelta(30),"Pct_Concluida":0.0,
-         "AC":0,"PV":0,"EV":0,"Marco":True,
-         "Recursos":"Maria Souza","Responsavel":"Maria Souza","Causa_Raiz":"","Plano_Acao":""},
-
-        {"Portfolio":"Expansão de Mercado","Projeto":"Abertura Filial Sul",
-         "ID":6,"Nome da Tarefa":"Abertura Filial Sul","Tipo":"Fase",
-         "Inicio":hoje-timedelta(150),"Termino":hoje+timedelta(30),
-         "Termino_Baseline":hoje-timedelta(10),"Pct_Concluida":0.80,
-         "AC":1100000,"PV":960000,"EV":820000,"Marco":False,
-         "Recursos":"Carlos Melo","Responsavel":"Carlos Melo","Causa_Raiz":"","Plano_Acao":""},
-
-        {"Portfolio":"Expansão de Mercado","Projeto":"Abertura Filial Sul",
-         "ID":7,"Nome da Tarefa":"Inauguração Filial Sul","Tipo":"Marco",
-         "Inicio":hoje-timedelta(10),"Termino":hoje-timedelta(10),
-         "Termino_Baseline":hoje-timedelta(30),"Pct_Concluida":0.0,
-         "AC":0,"PV":0,"EV":0,"Marco":True,
-         "Recursos":"Carlos Melo","Responsavel":"Carlos Melo","Causa_Raiz":"","Plano_Acao":""},
-
-        {"Portfolio":"Expansão de Mercado","Projeto":"Expansão E-commerce",
-         "ID":8,"Nome da Tarefa":"Expansão E-commerce","Tipo":"Fase",
-         "Inicio":hoje-timedelta(45),"Termino":hoje+timedelta(120),
-         "Termino_Baseline":hoje+timedelta(120),"Pct_Concluida":0.30,
-         "AC":155000,"PV":160000,"EV":158000,"Marco":False,
-         "Recursos":"Lucia Ferreira","Responsavel":"Lucia Ferreira","Causa_Raiz":"","Plano_Acao":""},
-
-        {"Portfolio":"Expansão de Mercado","Projeto":"Expansão E-commerce",
-         "ID":9,"Nome da Tarefa":"Lançamento Loja Online v2","Tipo":"Marco",
-         "Inicio":hoje+timedelta(120),"Termino":hoje+timedelta(120),
-         "Termino_Baseline":hoje+timedelta(120),"Pct_Concluida":0.0,
-         "AC":0,"PV":0,"EV":0,"Marco":True,
-         "Recursos":"Lucia Ferreira","Responsavel":"Lucia Ferreira","Causa_Raiz":"","Plano_Acao":""},
+         "Termino_Baseline":hoje+timedelta(45),"Pct_Concluida":0.0,
+         "AC":0,"PV":0,"EV":0,"Marco":True,"Recursos":"Ana Costa","Responsavel":"Ana Costa"},
+        {"Portfolio":"Portfólio Geral","Projeto":"Data Analytics","ID":5,
+         "Nome da Tarefa":"Analytics — Fase 1: Discovery","Tipo":"Fase","Nivel":1,
+         "Inicio":hoje-timedelta(90),"Termino":hoje+timedelta(20),
+         "Termino_Baseline":hoje+timedelta(20),"Pct_Concluida":0.75,
+         "AC":200000,"PV":195000,"EV":200000,"Marco":False,"Recursos":"Maria Souza","Responsavel":"Maria Souza"},
+        {"Portfolio":"Portfólio Geral","Projeto":"Data Analytics","ID":6,
+         "Nome da Tarefa":"Analytics — Fase 2: Entrega","Tipo":"Fase","Nivel":1,
+         "Inicio":hoje+timedelta(20),"Termino":hoje+timedelta(100),
+         "Termino_Baseline":hoje+timedelta(100),"Pct_Concluida":0.0,
+         "AC":0,"PV":0,"EV":0,"Marco":False,"Recursos":"Maria Souza","Responsavel":"Maria Souza"},
+        {"Portfolio":"Portfólio Geral","Projeto":"Data Analytics","ID":7,
+         "Nome da Tarefa":"MVP Analytics","Tipo":"Marco","Nivel":2,
+         "Inicio":hoje+timedelta(100),"Termino":hoje+timedelta(100),
+         "Termino_Baseline":hoje+timedelta(100),"Pct_Concluida":0.0,
+         "AC":0,"PV":0,"EV":0,"Marco":True,"Recursos":"Maria Souza","Responsavel":"Maria Souza"},
+        {"Portfolio":"Portfólio Geral","Projeto":"Filial Sul","ID":8,
+         "Nome da Tarefa":"Filial Sul — Fase 1: Obras","Tipo":"Fase","Nivel":1,
+         "Inicio":hoje-timedelta(150),"Termino":hoje-timedelta(20),
+         "Termino_Baseline":hoje-timedelta(40),"Pct_Concluida":1.0,
+         "AC":600000,"PV":500000,"EV":480000,"Marco":False,"Recursos":"Carlos Melo","Responsavel":"Carlos Melo"},
+        {"Portfolio":"Portfólio Geral","Projeto":"Filial Sul","ID":9,
+         "Nome da Tarefa":"Filial Sul — Fase 2: Operação","Tipo":"Fase","Nivel":1,
+         "Inicio":hoje-timedelta(20),"Termino":hoje+timedelta(40),
+         "Termino_Baseline":hoje+timedelta(10),"Pct_Concluida":0.30,
+         "AC":500000,"PV":400000,"EV":310000,"Marco":False,"Recursos":"Carlos Melo","Responsavel":"Carlos Melo"},
+        {"Portfolio":"Portfólio Geral","Projeto":"Filial Sul","ID":10,
+         "Nome da Tarefa":"Inauguração Filial","Tipo":"Marco","Nivel":2,
+         "Inicio":hoje+timedelta(40),"Termino":hoje+timedelta(40),
+         "Termino_Baseline":hoje+timedelta(10),"Pct_Concluida":0.0,
+         "AC":0,"PV":0,"EV":0,"Marco":True,"Recursos":"Carlos Melo","Responsavel":"Carlos Melo"},
     ]
     df = pd.DataFrame(dados)
     df = calcular_evm(df)
-    df["Marco_Atrasado"] = (df["Marco"] == True) & (df["Termino"] > df["Termino_Baseline"])
+    df["Marco_Atrasado"] = df["Marco"] & (df["Termino"] > df["Termino_Baseline"])
     df["Inicio_str"]           = pd.to_datetime(df["Inicio"]).dt.strftime("%Y-%m-%d")
     df["Termino_str"]          = pd.to_datetime(df["Termino"]).dt.strftime("%Y-%m-%d")
     df["Termino_Baseline_str"] = pd.to_datetime(df["Termino_Baseline"]).dt.strftime("%Y-%m-%d")
+    df["Causa_Raiz"]  = ""
+    df["Plano_Acao"]  = ""
     return df
 
 
@@ -172,235 +211,421 @@ def carregar_dados(arquivo_excel=None) -> pd.DataFrame:
         return carregar_dados_mock()
 
     df_raw = pd.read_excel(arquivo_excel)
-
-    # Normaliza nomes de colunas (remove espaços extras)
     df_raw.columns = df_raw.columns.str.strip()
 
-    # ── DIAGNÓSTICO: mostra colunas encontradas ───────────────────────────────
-    with st.expander("🔍 Diagnóstico: colunas encontradas no Excel", expanded=True):
-        st.markdown("**Colunas detectadas no arquivo:**")
-        cols_encontradas = list(df_raw.columns)
-        st.code("\n".join([f"{i+1:02d}. {c}" for i, c in enumerate(cols_encontradas)]))
-        st.markdown("**Primeiras 3 linhas de dados:**")
+    # ── Diagnóstico (colapsado por padrão) ───────────────────────────────────
+    with st.expander("🔍 Diagnóstico: colunas detectadas no Excel", expanded=False):
+        st.code("\n".join([f"{i+1:02d}. {c}" for i, c in enumerate(df_raw.columns)]))
         st.dataframe(df_raw.head(3), use_container_width=True)
-        st.info(
-            "📋 Cole aqui os nomes das colunas acima no chat para que o sistema "
-            "mapeie corretamente as colunas de Início, Término, % Concluída, PV, EV e AC."
-        )
 
-    # Mapeamento flexível de colunas do MS Project → nomes internos
+    # ── Mapeamento completo de colunas ────────────────────────────────────────
     col_map = {
-        "Início": "Inicio", "Inicio": "Inicio", "Start": "Inicio",
-        "Término": "Termino", "Termino": "Termino", "Finish": "Termino",
-        "% concluída": "Pct_Concluida", "% Concluída": "Pct_Concluida",
-        "% Complete": "Pct_Concluida", "Percentual Concluído": "Pct_Concluida",
-        "% Completo": "Pct_Concluida", "Pct Concluída": "Pct_Concluida",
-        "Custo Real (CR)": "AC", "AC": "AC", "Custo Real": "AC",
-        "Actual Cost": "AC", "ACWP": "AC",
-        "COTA": "PV", "PV": "PV", "Custo Planejado": "PV",
-        "Baseline Cost": "PV", "BCWS": "PV",
-        "COTR": "EV", "EV": "EV", "Custo Realizado": "EV",
-        "Earned Value": "EV", "BCWP": "EV",
+        "Início": "Inicio", "Start": "Inicio",
+        "Término": "Termino", "Finish": "Termino",
+        "Nome": "Nome da Tarefa", "Name": "Nome da Tarefa",
+        "Task Name": "Nome da Tarefa", "Nome da Tarefa": "Nome da Tarefa",
+        "Nível da estrutura de tópicos": "Nivel", "Outline Level": "Nivel",
+        "Duração": "Duracao", "Duration": "Duracao",
+        "Id": "ID",
         "Nomes dos Recursos": "Recursos", "Resource Names": "Recursos",
-        "Nome da Tarefa": "Nome da Tarefa", "Task Name": "Nome da Tarefa", "Name": "Nome da Tarefa",
+        "% concluída": "Pct_Concluida", "% Concluída": "Pct_Concluida",
+        "% Complete": "Pct_Concluida", "% Completo": "Pct_Concluida",
+        "Custo Real (CR)": "AC", "Custo Real": "AC", "Actual Cost": "AC", "ACWP": "AC", "AC": "AC",
+        "COTA": "PV", "Baseline Cost": "PV", "BCWS": "PV", "PV": "PV",
+        "COTR": "EV", "Earned Value": "EV", "BCWP": "EV", "EV": "EV",
         "Marco": "Marco", "Milestone": "Marco",
         "Projeto": "Projeto", "Project": "Projeto",
         "Portfólio": "Portfolio", "Portfolio": "Portfolio",
     }
-    # Mapeamento adicional para nomes alternativos comuns no MS Project PT-BR
-    col_map_extra = {
-        "Nome": "Nome da Tarefa",
-        "Id": "ID", "ID": "ID",
-        "Ativo": "Marco",  # Será refinado abaixo
-        "Predecessoras": "Precedentes",
-        "Nível da estrutura de tópicos": "Nivel",
-        "Anotações": "Anotacoes",
-    }
-    df_raw.rename(columns={k: v for k, v in col_map_extra.items() if k in df_raw.columns}, inplace=True)
+    df_raw.rename(columns={k: v for k, v in col_map.items() if k in df_raw.columns}, inplace=True)
 
-    # Nome da Tarefa — fallback para coluna "Nome" já renomeada
-    if "Nome da Tarefa" not in df_raw.columns:
-        for alt in ["Nome", "Task Name", "Name"]:
-            if alt in df_raw.columns:
-                df_raw.rename(columns={alt: "Nome da Tarefa"}, inplace=True)
-                break
+    # ── Nome do projeto = nome do arquivo ─────────────────────────────────────
+    nome_arquivo  = getattr(arquivo_excel, "name", "Projeto")
+    nome_projeto  = nome_arquivo.replace(".xlsx","").replace(".xls","")
 
-    # Garante colunas obrigatórias com valores padrão se não existirem
-    nome_arquivo = getattr(arquivo_excel, "name", "Projeto")
-    nome_projeto = nome_arquivo.replace(".xlsx","").replace(".xls","")
+    # ── Defaults para colunas ausentes ───────────────────────────────────────
+    if "Portfolio"     not in df_raw.columns: df_raw["Portfolio"]     = "Portfólio Geral"
+    if "Projeto"       not in df_raw.columns: df_raw["Projeto"]       = nome_projeto
+    if "Responsavel"   not in df_raw.columns: df_raw["Responsavel"]   = ""
+    if "Causa_Raiz"    not in df_raw.columns: df_raw["Causa_Raiz"]    = ""
+    if "Plano_Acao"    not in df_raw.columns: df_raw["Plano_Acao"]    = ""
+    if "Pct_Concluida" not in df_raw.columns: df_raw["Pct_Concluida"] = 0.0
+    if "AC"            not in df_raw.columns: df_raw["AC"]            = 0.0
+    if "PV"            not in df_raw.columns: df_raw["PV"]            = 0.0
+    if "EV"            not in df_raw.columns: df_raw["EV"]            = 0.0
+    if "Recursos"      not in df_raw.columns: df_raw["Recursos"]      = ""
 
-    defaults = {
-        "Portfolio":  "Portfólio Geral",
-        "Projeto":    nome_projeto,
-        "Tipo":       "Tarefa",
-        "Responsavel": "",
-        "Causa_Raiz":  "",
-        "Plano_Acao":  "",
-        "Pct_Concluida": 0.0,
-        "AC": 0.0, "PV": 0.0, "EV": 0.0,
-    }
-    for col, val in defaults.items():
-        if col not in df_raw.columns:
-            df_raw[col] = val
+    # ── Datas ─────────────────────────────────────────────────────────────────
+    df_raw["Inicio"]  = pd.to_datetime(df_raw.get("Inicio"),  errors="coerce")
+    df_raw["Termino"] = pd.to_datetime(df_raw.get("Termino"), errors="coerce")
+    df_raw = df_raw.dropna(subset=["Inicio", "Termino"])
 
-    # Garante que Inicio e Termino existam — tenta variações de nome
-    for destino, alternativas in [
-        ("Inicio",  ["Início", "Start", "Data Início", "Data de Início"]),
-        ("Termino", ["Término", "Finish", "Data Término", "Data de Término"]),
-    ]:
-        if destino not in df_raw.columns:
-            for alt in alternativas:
-                if alt in df_raw.columns:
-                    df_raw.rename(columns={alt: destino}, inplace=True)
-                    break
-
-    # Termino_Baseline = Termino se não existir coluna de baseline
     if "Termino_Baseline" not in df_raw.columns:
-        col_ref = "Termino" if "Termino" in df_raw.columns else df_raw.columns[0]
-        df_raw["Termino_Baseline"] = df_raw[col_ref]
+        df_raw["Termino_Baseline"] = df_raw["Termino"]
 
-    # Converte % para decimal se vier como inteiro (ex: 75 → 0.75)
+    # ── % Concluída ───────────────────────────────────────────────────────────
     df_raw["Pct_Concluida"] = pd.to_numeric(df_raw["Pct_Concluida"], errors="coerce").fillna(0)
     if df_raw["Pct_Concluida"].max() > 1:
         df_raw["Pct_Concluida"] = df_raw["Pct_Concluida"] / 100
 
-    # Detecta marcos pelo Nível da estrutura (nível 1 = fase, nível 0 = sumário)
-    # e pela duração zero (padrão MS Project para marcos)
+    # ── Marco: duração = 0 ────────────────────────────────────────────────────
     if "Marco" not in df_raw.columns:
-        if "Duração" in df_raw.columns:
-            df_raw["Marco"] = df_raw["Duração"].astype(str).str.strip().isin(["0", "0 dias", "0d"])
+        if "Duracao" in df_raw.columns:
+            df_raw["Marco"] = df_raw["Duracao"].astype(str).str.strip().isin(
+                ["0","0 dias","0d","0 days"])
         else:
             df_raw["Marco"] = False
     else:
-        df_raw["Marco"] = df_raw["Marco"].astype(str).str.lower().isin(["sim", "true", "1", "yes"])
+        df_raw["Marco"] = df_raw["Marco"].astype(str).str.lower().isin(
+            ["sim","true","1","yes"])
 
-    # Define Tipo com base no Nível da estrutura de tópicos
+    # ── Tipo por Nível ────────────────────────────────────────────────────────
     if "Nivel" in df_raw.columns:
         df_raw["Nivel"] = pd.to_numeric(df_raw["Nivel"], errors="coerce").fillna(99)
-        df_raw["Tipo"] = df_raw.apply(
-            lambda r: "Marco" if r["Marco"]
-            else ("Fase" if r["Nivel"] <= 1 else "Tarefa"), axis=1
-        )
+        def definir_tipo(row):
+            if row["Marco"]:        return "Marco"
+            if row["Nivel"] <= 1:   return "Fase"
+            return "Tarefa"
+        df_raw["Tipo"] = df_raw.apply(definir_tipo, axis=1)
     else:
-        df_raw["Tipo"] = df_raw["Marco"].apply(lambda m: "Marco" if m else "Tarefa")
+        df_raw["Tipo"] = df_raw["Marco"].apply(lambda m: "Marco" if m else "Fase")
 
-    # Calcula EVM com função vetorial segura
+    # ── EVM ───────────────────────────────────────────────────────────────────
     df_raw = calcular_evm(df_raw)
-
     df_raw["Marco_Atrasado"] = (
         df_raw["Marco"] &
         (pd.to_datetime(df_raw["Termino"], errors="coerce") >
          pd.to_datetime(df_raw["Termino_Baseline"], errors="coerce"))
     )
-
-    for campo, col in [("Inicio_str","Inicio"),("Termino_str","Termino"),
-                       ("Termino_Baseline_str","Termino_Baseline")]:
-        df_raw[campo] = pd.to_datetime(df_raw[col], errors="coerce").dt.strftime("%Y-%m-%d")
-
+    df_raw["Inicio_str"]           = df_raw["Inicio"].dt.strftime("%Y-%m-%d")
+    df_raw["Termino_str"]          = df_raw["Termino"].dt.strftime("%Y-%m-%d")
+    df_raw["Termino_Baseline_str"] = pd.to_datetime(
+        df_raw["Termino_Baseline"], errors="coerce").dt.strftime("%Y-%m-%d")
     return df_raw
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 4. COMPONENTES UI
-# ──────────────────────────────────────────────────────────────────────────────
-def render_kpi_card(label, valor, sub="", cor="#1B2A4A"):
-    st.markdown(f"""
-    <div class="kpi-card" style="border-left-color:{cor}">
-        <div class="kpi-label">{label}</div>
-        <div class="kpi-value">{valor}</div>
-        <div class="kpi-sub">{sub}</div>
-    </div>""", unsafe_allow_html=True)
-
-def badge_spi(spi):
-    if spi is None or (isinstance(spi, float) and np.isnan(spi)):
-        return '<span class="badge-yellow">N/A</span>'
-    if spi >= 1.0:
-        return f'<span class="badge-green">SPI {spi:.2f} ▲</span>'
-    elif spi >= 0.90:
-        return f'<span class="badge-yellow">SPI {spi:.2f} !</span>'
-    return f'<span class="badge-red">SPI {spi:.2f} ▼</span>'
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 5. SIDEBAR
+# 4. SIDEBAR — upload e filtros
 # ──────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 📊 Dashboard PMO")
+    st.markdown("## ⚙️ Configurações")
     st.markdown("---")
-    st.markdown("### 📂 Fonte de Dados")
     arquivo = st.file_uploader(
-        "Importe o Excel do MS Project",
-        type=["xlsx", "xls"],
-        help="Exporte pelo MS Project: Arquivo > Salvar Como > Excel Workbook",
+        "📂 Importar Excel MS Project",
+        type=["xlsx","xls"],
+        accept_multiple_files=False,
     )
-    st.markdown("---")
-    st.markdown("### 🔍 Filtros")
-    data_relatorio = st.date_input("Data de Referência", value=date.today())
+    data_ref = st.date_input("📅 Data de Referência", value=date.today())
+    logo_url = st.text_input("🖼️ URL do Logo (opcional)", value="")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 6. CARREGA DADOS E FILTROS
+# 5. CARREGA E FILTRA
 # ──────────────────────────────────────────────────────────────────────────────
 df_full = carregar_dados(arquivo)
 
-portfolios = ["Todos"] + sorted(df_full["Portfolio"].dropna().unique().tolist())
-portfolio_sel = st.sidebar.selectbox("Portfólio", portfolios)
+projetos_lista = ["Todos"] + sorted(df_full["Projeto"].dropna().unique().tolist())
 
-df_port = df_full if portfolio_sel == "Todos" else df_full[df_full["Portfolio"] == portfolio_sel]
-projetos = ["Todos"] + sorted(df_port["Projeto"].dropna().unique().tolist())
-projeto_sel = st.sidebar.selectbox("Projeto", projetos)
+df_fases  = df_full[df_full["Tipo"] == "Fase"]
+df_marcos = df_full[df_full["Marco"] == True]
 
-df = df_port if projeto_sel == "Todos" else df_port[df_port["Projeto"] == projeto_sel]
-df_fases  = df[df["Tipo"].isin(["Fase", "Projeto"])]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 6. CABEÇALHO + FILTROS + SAÚDE HOLÍSTICA
+# ──────────────────────────────────────────────────────────────────────────────
+col_logo, col_title, col_filtros = st.columns([1, 4, 3])
+
+with col_logo:
+    if logo_url:
+        st.image(logo_url, width=120)
+    else:
+        st.markdown(
+            "<div style='width:72px;height:48px;background:#1B3A6B;"
+            "border-radius:8px;display:flex;align-items:center;"
+            "justify-content:center;color:white;font-weight:800;font-size:13px'>"
+            "PMO</div>", unsafe_allow_html=True)
+
+with col_title:
+    st.markdown(
+        "<div style='padding-top:4px'>"
+        "<span style='font-size:19px;font-weight:800;color:#0D1B2A'>"
+        "DASHBOARD DE GOVERNANÇA E VALOR DO PORTFÓLIO</span><br>"
+        f"<span style='font-size:12px;color:#8A9BB5'>PMBOK 8ª Ed. · "
+        f"Referência: {data_ref.strftime('%d/%m/%Y')}</span></div>",
+        unsafe_allow_html=True)
+
+with col_filtros:
+    # Filtros de visão em abas horizontais
+    visao_sel = st.radio(
+        "Visão",
+        ["Portfólio Global", "Diretoria de Tecnologia", "Unidade de Negócio"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    projeto_sel = st.selectbox(
+        "Projeto", projetos_lista, label_visibility="collapsed"
+    )
+
+st.markdown("<hr style='margin:10px 0 14px 0;border-color:#E0E4EC'>", unsafe_allow_html=True)
+
+# Aplica filtro de projeto
+df = df_full if projeto_sel == "Todos" else df_full[df_full["Projeto"] == projeto_sel]
+df_fases  = df[df["Tipo"] == "Fase"]
 df_marcos = df[df["Marco"] == True]
 
+# ── Barra de Saúde Holística ──────────────────────────────────────────────────
+spi_saude   = df_fases["SPI"].dropna().mean() if not df_fases.empty else None
+pct_saude   = min(float(spi_saude), 1.0) * 100 if spi_saude is not None else 0
+n_crit_s    = int((df_fases["SPI"].dropna() < 0.90).sum())
+n_total_s   = int(df_fases["SPI"].dropna().count())
+
+if spi_saude is None or pct_saude == 0:
+    cor_saude = "#8A9BB5"; label_saude = "SEM DADOS EVM"
+elif pct_saude >= 95:
+    cor_saude = "#1E7E34"; label_saude = "ESTRATÉGIA SAUDÁVEL"
+elif pct_saude >= 90:
+    cor_saude = "#B8860B"; label_saude = "ATENÇÃO — DESVIOS MODERADOS"
+else:
+    cor_saude = "#C62828"; label_saude = "CRÍTICO — INTERVENÇÃO NECESSÁRIA"
+
+st.markdown(f"""
+<div style='background:#FFFFFF;border-radius:10px;padding:14px 22px;
+            box-shadow:0 1px 6px rgba(0,0,0,0.07);margin-bottom:16px'>
+  <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>
+    <span style='font-size:11px;font-weight:700;color:#8A9BB5;
+                 text-transform:uppercase;letter-spacing:.8px'>
+      SAÚDE HOLÍSTICA DA ESTRATÉGIA — {visao_sel.upper()}
+    </span>
+    <span style='font-size:12px;font-weight:700;color:{cor_saude}'>{label_saude}</span>
+  </div>
+  <div style='background:#F0F2F6;border-radius:20px;height:10px;width:100%;overflow:hidden'>
+    <div style='background:{cor_saude};height:10px;width:{pct_saude:.1f}%;
+                border-radius:20px;transition:width .5s ease'></div>
+  </div>
+  <div style='display:flex;justify-content:space-between;margin-top:6px'>
+    <span style='font-size:11px;color:#8A9BB5'>
+      SPI Médio: <b style='color:{cor_saude}'>{spi_saude:.2f}</b>
+      &nbsp;·&nbsp; {n_crit_s} de {n_total_s} projetos em zona crítica
+    </span>
+    <span style='font-size:11px;color:#8A9BB5'>{pct_saude:.1f}% da meta de entrega</span>
+  </div>
+</div>
+""" if spi_saude else f"""
+<div style='background:#FFFFFF;border-radius:10px;padding:14px 22px;
+            box-shadow:0 1px 6px rgba(0,0,0,0.07);margin-bottom:16px'>
+  <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>
+    <span style='font-size:11px;font-weight:700;color:#8A9BB5;
+                 text-transform:uppercase;letter-spacing:.8px'>
+      SAÚDE HOLÍSTICA DA ESTRATÉGIA — {visao_sel.upper()}
+    </span>
+    <span style='font-size:12px;font-weight:700;color:#8A9BB5'>SEM DADOS EVM</span>
+  </div>
+  <div style='background:#F0F2F6;border-radius:20px;height:10px;width:100%;overflow:hidden'>
+    <div style='background:#D0D6E0;height:10px;width:100%;border-radius:20px'></div>
+  </div>
+  <div style='margin-top:6px'>
+    <span style='font-size:11px;color:#8A9BB5'>
+      Importe um Excel com colunas EVM (COTA/PV, COTR/EV, Custo Real/AC) para habilitar este indicador.
+    </span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 7. CABEÇALHO
+# 7. CARDS KPI
 # ──────────────────────────────────────────────────────────────────────────────
-st.markdown(
-    f"<h1 style='color:#1B2A4A;font-size:26px;font-weight:700;margin-bottom:2px'>"
-    f"Dashboard Executivo de Portfólio</h1>"
-    f"<p style='color:#9AA5BE;font-size:13px'>PMBOK 8ª Ed. · Referência: "
-    f"{data_relatorio.strftime('%d/%m/%Y')} · Portfólio: <b>{portfolio_sel}</b> · "
-    f"Projeto: <b>{projeto_sel}</b></p>",
-    unsafe_allow_html=True,
-)
-st.markdown("---")
+n_projetos = df_fases["Projeto"].nunique()
+pct_media  = df_fases["Pct_Concluida"].mean() * 100 if not df_fases.empty else 0
+spi_medio  = df_fases["SPI"].dropna().mean() if not df_fases.empty else None
+marcos_at  = int(df_marcos["Marco_Atrasado"].sum()) if not df_marcos.empty else 0
+
+def cor_spi(s):
+    if s is None or np.isnan(s): return "#8A9BB5", "N/A", "Sem dados EVM"
+    if s >= 1.0:  return "#1E7E34", f"{s:.2f} ✅", "No prazo"
+    if s >= 0.90: return "#B8860B", f"{s:.2f} ⚠️", "Atenção"
+    return "#C62828", f"{s:.2f} 🔴", "Crítico"
+
+cor1, val_spi, label_spi = cor_spi(spi_medio)
+cor_m = "#C62828" if marcos_at > 0 else "#1E7E34"
+
+c1, c2, c3, c4 = st.columns(4)
+for col, label, valor, sub, cor_top in [
+    (c1, "PROJETOS ATIVOS",    str(n_projetos),        "no portfólio",           "#0D1B2A"),
+    (c2, "CONCLUSÃO MÉDIA",    f"{pct_media:.1f}%",    "avanço físico médio",    "#0D1B2A"),
+    (c3, "SPI DO PORTFÓLIO",   val_spi,                label_spi,                cor1),
+    (c4, "MARCOS EM ATRASO",   str(marcos_at),         "além da baseline",       cor_m),
+]:
+    with col:
+        st.markdown(f"""
+        <div class="kpi-wrap" style="border-top-color:{cor_top}">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value" style="color:{cor_top}">{valor}</div>
+            <div class="kpi-sub">{sub}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 8. SEÇÃO A — KPIs GERAIS
+# 8. SECTION 1 — ROADMAP EXECUTIVO & MARCOS
 # ──────────────────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">A. Governança Estratégica — Visão Holística</div>',
+st.markdown('<div class="section-box">', unsafe_allow_html=True)
+st.markdown('<div class="section-header">📅 SECTION 1 — ROADMAP EXECUTIVO & MARCOS DE VALOR</div>',
             unsafe_allow_html=True)
 
-n_projetos  = df_fases["Projeto"].nunique()
-pct_media   = df_fases["Pct_Concluida"].mean() * 100 if not df_fases.empty else 0
-spi_medio   = df_fases["SPI"].dropna().mean() if not df_fases.empty else 0
-marcos_crit = int(df_marcos["Marco_Atrasado"].sum()) if not df_marcos.empty else 0
-n_criticos  = int((df_fases["SPI"].dropna() < 0.90).sum())
+df_gantt  = df[df["Tipo"] == "Fase"].copy()
+df_marcos2 = df[df["Marco"] == True].copy()
 
-cor_spi = "#C62828" if spi_medio < 0.90 else "#B8860B" if spi_medio < 1.0 else "#1E7E34"
+if df_gantt.empty:
+    st.info("Nenhuma fase detectada. Verifique o arquivo importado ou use os dados de exemplo.")
+else:
+    projetos_gantt = df_gantt["Projeto"].unique().tolist()
+    cores_proj = {
+        p: c for p, c in zip(
+            projetos_gantt,
+            ["#1B3A6B","#2E6DA4","#1A7F5A","#7B3FA0","#B85C00","#8B0000"]
+        )
+    }
 
-c1, c2, c3, c4, c5 = st.columns(5)
-with c1: render_kpi_card("Projetos Monitorados", str(n_projetos), "no portfólio")
-with c2: render_kpi_card("Conclusão Média", f"{pct_media:.1f}%", "avanço físico")
-with c3: render_kpi_card("SPI Médio", f"{spi_medio:.2f}", "Índice de Desempenho de Prazo", cor_spi)
-with c4: render_kpi_card("Marcos em Atraso", str(marcos_crit), "além da baseline",
-                          "#C62828" if marcos_crit > 0 else "#1E7E34")
-with c5: render_kpi_card("Projetos Críticos", str(n_criticos), "SPI < 0.90",
-                          "#C62828" if n_criticos > 0 else "#1E7E34")
+    fig = go.Figure()
+    hoje_str = date.today().strftime("%Y-%m-%d")
+
+    # ── Barras de fase ────────────────────────────────────────────────────────
+    for _, row in df_gantt.iterrows():
+        dur = max((pd.to_datetime(row["Termino_str"]) -
+                   pd.to_datetime(row["Inicio_str"])).days, 1)
+        spi_val = row["SPI"] if not pd.isna(row.get("SPI", np.nan)) else None
+        if spi_val is None:
+            cor_barra = cores_proj.get(row["Projeto"], "#1B3A6B")
+        elif spi_val < 0.90:
+            cor_barra = "#C62828"
+        elif spi_val < 1.0:
+            cor_barra = "#B8860B"
+        else:
+            cor_barra = cores_proj.get(row["Projeto"], "#1B3A6B")
+
+        label_pct = f"{row['Pct_Concluida']*100:.0f}%" if row["Pct_Concluida"] > 0 else ""
+        fig.add_trace(go.Bar(
+            x=[dur], y=[row["Projeto"]],
+            base=[row["Inicio_str"]],
+            orientation="h",
+            marker=dict(color=cor_barra, opacity=0.88,
+                        line=dict(width=0)),
+            text=label_pct,
+            textposition="inside",
+            insidetextanchor="middle",
+            textfont=dict(size=11, color="white", family="Arial"),
+            hovertemplate=(
+                f"<b>{row['Nome da Tarefa']}</b><br>"
+                f"Início: {row['Inicio_str']} → Término: {row['Termino_str']}<br>"
+                f"Avanço: {row['Pct_Concluida']*100:.0f}%"
+                + (f"<br>SPI: {spi_val:.2f}" if spi_val else "")
+                + "<extra></extra>"
+            ),
+            showlegend=False,
+        ))
+
+    # ── Marcos ────────────────────────────────────────────────────────────────
+    for _, row in df_marcos2.iterrows():
+        # ── Símbolo do marco por status ───────────────────────────────────────
+        hoje_dt = date.today()
+        termino_dt = pd.to_datetime(row["Termino_str"]).date()
+        concluido  = row["Pct_Concluida"] >= 1.0
+
+        if concluido:
+            cor_m2 = "#1E7E34"; simbolo = "star"; label_icone = "📅"
+        elif atrasado:
+            cor_m2 = "#C62828"; simbolo = "circle"; label_icone = "🔴"
+        elif termino_dt > hoje_dt:
+            cor_m2 = "#8A9BB5"; simbolo = "diamond"; label_icone = "🔶"
+        else:
+            cor_m2 = "#1E7E34"; simbolo = "diamond"; label_icone = "♦"
+
+        fig.add_trace(go.Scatter(
+            x=[row["Termino_str"]],
+            y=[y_proj],
+            mode="markers+text",
+            marker=dict(
+                symbol=simbolo, size=16,
+                color=cor_m2,
+                line=dict(width=2, color="white"),
+            ),
+            text=[f"  {row['Nome da Tarefa']}"],
+            textposition="middle right",
+            textfont=dict(size=10, color=cor_m2),
+            hovertemplate=(
+                f"<b>◆ {row['Nome da Tarefa']}</b><br>"
+                f"Baseline: {row['Termino_Baseline_str']}<br>"
+                f"Atual:    {row['Termino_str']}<br>"
+                f"Status:   {status_txt}<extra></extra>"
+            ),
+            showlegend=False,
+        ))
+
+    # Linha "Hoje"
+    fig.add_shape(
+        type="line", xref="x", yref="paper",
+        x0=hoje_str, x1=hoje_str, y0=0, y1=1,
+        line=dict(color="#4A90D9", width=2, dash="dash"),
+    )
+    fig.add_annotation(
+        x=hoje_str, y=1.02, yref="paper",
+        text="Hoje", showarrow=False, xanchor="center",
+        font=dict(size=11, color="#4A90D9"),
+    )
+
+    fig.update_layout(
+        barmode="stack",
+        plot_bgcolor="white", paper_bgcolor="white",
+        height=max(280, len(projetos_gantt) * 72 + 80),
+        margin=dict(l=10, r=160, t=30, b=40),
+        xaxis=dict(
+            type="date", gridcolor="#F0F2F6",
+            tickformat="%b/%y", tickfont=dict(size=11, color="#6B7A99"),
+            showline=False,
+        ),
+        yaxis=dict(
+            autorange="reversed",
+            tickfont=dict(size=12, color="#0D1B2A", family="Arial"),
+            showgrid=False,
+        ),
+        hoverlabel=dict(bgcolor="white", font_size=12),
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+    # Legenda de símbolos
+    st.markdown("""
+    <div style='display:flex;gap:24px;flex-wrap:wrap;font-size:11px;
+                color:#6B7A99;margin-top:-8px;padding:10px 4px'>
+      <span>📅 <b style='color:#1E7E34'>Concluído</b></span>
+      <span>♦ <b style='color:#1E7E34'>No Prazo</b></span>
+      <span>🔴 <b style='color:#C62828'>Atrasado</b></span>
+      <span>🔶 <b style='color:#8A9BB5'>Agendado / Futuro</b></span>
+      <span><span style='color:#C62828'>■</span> Fase crítica (SPI&lt;0.90)</span>
+      <span><span style='color:#B8860B'>■</span> Fase em atenção</span>
+      <span><b style='color:#4A90D9'>— —</b> Hoje</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 9. SEÇÃO B — EVM
+# 9. SECTION 2 — MATRIZ EVM
 # ──────────────────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">B. Indicadores EVM — Desempenho de Prazo e Custo</div>',
+st.markdown('<div class="section-box">', unsafe_allow_html=True)
+st.markdown('<div class="section-header">📊 SECTION 2 — ANÁLISE DE VALOR AGREGADO (EVM) POR PROJETO</div>',
             unsafe_allow_html=True)
 
-if df_fases.empty:
-    st.info("Nenhum dado de fase disponível.")
+tem_evm = df_fases[["PV","EV","AC"]].sum().sum() > 0
+
+if not tem_evm:
+    st.info("ℹ️ Dados de EVM (PV, EV, AC) não encontrados no arquivo importado. "
+            "Para habilitar esta seção, exporte do MS Project incluindo as colunas "
+            "COTA (PV), COTR (EV) e Custo Real (AC).")
 else:
     df_evm = df_fases.groupby("Projeto", as_index=False).agg(
         PV=("PV","sum"), EV=("EV","sum"), AC=("AC","sum"),
@@ -409,228 +634,201 @@ else:
     df_evm["SPI"] = np.where(df_evm["PV"]>0, (df_evm["EV"]/df_evm["PV"]).round(3), np.nan)
     df_evm["CPI"] = np.where(df_evm["AC"]>0, (df_evm["EV"]/df_evm["AC"]).round(3), np.nan)
     df_evm["SV"]  = df_evm["EV"] - df_evm["PV"]
+    df_evm["CV"]  = df_evm["EV"] - df_evm["AC"]
 
-    cores = ["#C62828" if s<0.90 else "#B8860B" if s<1.0 else "#1E7E34"
-             for s in df_evm["SPI"].fillna(0)]
+    # Quadrante SPI x CPI
+    cores_b = ["#C62828" if (not np.isnan(s) and s<0.90)
+               else "#B8860B" if (not np.isnan(s) and s<1.0)
+               else "#1B3A6B" for s in df_evm["SPI"].fillna(1)]
 
-    fig_bubble = go.Figure()
-    fig_bubble.add_trace(go.Scatter(
+    fig2 = go.Figure()
+    tamanho_bolha = (df_evm["EV"].clip(lower=1) / df_evm["EV"].max() * 40 + 15)
+    fig2.add_trace(go.Scatter(
         x=df_evm["SPI"], y=df_evm["CPI"],
         mode="markers+text",
-        marker=dict(size=df_evm["EV"].clip(lower=1)/12000, color=cores,
-                    opacity=0.85, line=dict(width=1, color="white")),
-        text=df_evm["Projeto"], textposition="top center",
-        textfont=dict(size=11, color="#1B2A4A"),
+        marker=dict(size=tamanho_bolha, color=cores_b, opacity=0.80,
+                    line=dict(width=2, color="white")),
+        text=df_evm["Projeto"],
+        textposition="top center",
+        textfont=dict(size=11, color="#0D1B2A"),
         hovertemplate="<b>%{text}</b><br>SPI: %{x:.2f}<br>CPI: %{y:.2f}<extra></extra>",
     ))
-    fig_bubble.add_hline(y=1.0, line_dash="dot", line_color="#888", line_width=1)
-    fig_bubble.add_vline(x=1.0, line_dash="dot", line_color="#888", line_width=1)
-    fig_bubble.add_vline(x=0.90, line_dash="dash", line_color="#C62828", line_width=1,
-                         annotation_text="Limite Crítico", annotation_position="top right",
-                         annotation_font=dict(size=10, color="#C62828"))
-    fig_bubble.update_layout(
-        title=dict(text="Quadrante de Saúde — SPI × CPI", font=dict(size=13,color="#1B2A4A")),
-        xaxis_title="SPI (Prazo)", yaxis_title="CPI (Custo)",
+    for y_val in [1.0]:
+        fig2.add_hline(y=y_val, line_dash="dot", line_color="#CCCCCC", line_width=1)
+        fig2.add_vline(x=y_val, line_dash="dot", line_color="#CCCCCC", line_width=1)
+    fig2.add_vline(x=0.90, line_dash="dash", line_color="#C62828", line_width=1)
+    fig2.add_annotation(x=0.90, y=df_evm["CPI"].max()+0.05 if not df_evm["CPI"].isna().all() else 1.1,
+                        text="Limite crítico", showarrow=False,
+                        font=dict(size=10, color="#C62828"), xanchor="left")
+    fig2.update_layout(
         plot_bgcolor="white", paper_bgcolor="white",
-        height=360, margin=dict(l=40,r=20,t=50,b=40),
-        xaxis=dict(gridcolor="#F0F0F0", zeroline=False),
-        yaxis=dict(gridcolor="#F0F0F0", zeroline=False),
+        height=320, margin=dict(l=40,r=20,t=20,b=40),
+        xaxis=dict(title="SPI — Prazo", gridcolor="#F0F2F6", zeroline=False),
+        yaxis=dict(title="CPI — Custo", gridcolor="#F0F2F6", zeroline=False),
     )
 
-    col_b1, col_b2 = st.columns(2)
-    with col_b1:
-        st.plotly_chart(fig_bubble, use_container_width=True)
-    with col_b2:
-        st.markdown("**Resumo EVM por Projeto**")
-        df_show = df_evm[["Projeto","PV","EV","AC","SPI","CPI","SV"]].copy()
-        df_show.columns = ["Projeto","PV (R$)","EV (R$)","AC (R$)","SPI","CPI","SV (R$)"]
-        for c in ["PV (R$)","EV (R$)","AC (R$)","SV (R$)"]:
-            df_show[c] = df_show[c].apply(lambda x: f"R$ {x:,.0f}".replace(",","."))
+    col_g, col_t = st.columns([1,1])
+    with col_g:
+        st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar":False})
+    with col_t:
+        st.markdown("**Indicadores por Projeto**")
+        df_show = df_evm[["Projeto","SPI","CPI","SV","CV","Pct"]].copy()
+        df_show.columns = ["Projeto","SPI","CPI","SV (R$)","CV (R$)","Avanço"]
+        df_show["SV (R$)"] = df_show["SV (R$)"].apply(lambda x: f"R$ {x:,.0f}".replace(",","."))
+        df_show["CV (R$)"] = df_show["CV (R$)"].apply(lambda x: f"R$ {x:,.0f}".replace(",","."))
+        df_show["Avanço"]  = df_show["Avanço"].apply(lambda x: f"{x*100:.0f}%")
 
         def hl(row):
-            s = float(row["SPI"]) if not pd.isna(row["SPI"]) else 1.0
-            if s < 0.90: return ["background-color:#FDECEA"]*len(row)
-            if s < 1.0:  return ["background-color:#FFF8E1"]*len(row)
-            return ["background-color:#E6F4EA"]*len(row)
+            s = row["SPI"]
+            try:
+                s = float(s)
+                if s < 0.90: return ["background:#FDECEA"]*len(row)
+                if s < 1.0:  return ["background:#FFF8E1"]*len(row)
+            except: pass
+            return ["background:#E6F4EA"]*len(row)
 
-        st.dataframe(df_show.style.apply(hl, axis=1), use_container_width=True, hide_index=True)
+        st.dataframe(df_show.style.apply(hl,axis=1),
+                     use_container_width=True, hide_index=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 10. SEÇÃO C — GANTT / ROADMAP
+# 10. SECTION 3 — GOVERNANÇA DE INCERTEZAS
 # ──────────────────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">C. Roadmap Executivo — Cronograma e Marcos</div>',
+st.markdown('<div class="section-box">', unsafe_allow_html=True)
+st.markdown('<div class="section-header">⚠️ SECTION 3 — GOVERNANÇA DE INCERTEZAS: PONTOS CRÍTICOS E PLANOS DE AÇÃO</div>',
             unsafe_allow_html=True)
 
-df_gantt = df[df["Tipo"] == "Fase"].copy()
+df_crit = pd.concat([
+    df_fases[df_fases["SPI"].notna() & (df_fases["SPI"] < 0.90)],
+    df_marcos[df_marcos["Marco_Atrasado"] == True],
+]).drop_duplicates(subset=["Projeto"])
 
-if df_gantt.empty:
-    st.info("Nenhuma fase encontrada para o filtro selecionado.")
+if df_crit.empty:
+    st.success("✅ Nenhum desvio crítico identificado. Portfólio sob controle.")
 else:
-    fig_gantt = go.Figure()
-    hoje_str  = date.today().strftime("%Y-%m-%d")
-
-    for _, row in df_gantt.iterrows():
-        spi_val = row["SPI"] if not pd.isna(row["SPI"]) else 1.0
-        cor = "#C62828" if spi_val < 0.90 else "#B8860B" if spi_val < 1.0 else "#1B2A4A"
-        dur = (pd.to_datetime(row["Termino_str"]) - pd.to_datetime(row["Inicio_str"])).days
-        fig_gantt.add_trace(go.Bar(
-            x=[dur], y=[f"{row['Projeto']} — {row['Nome da Tarefa']}"],
-            base=[row["Inicio_str"]], orientation="h",
-            marker=dict(color=cor, opacity=0.85),
-            text=f"{row['Pct_Concluida']*100:.0f}%",
-            textposition="inside", insidetextanchor="middle",
-            hovertemplate=(f"<b>{row['Nome da Tarefa']}</b><br>"
-                           f"Início: {row['Inicio_str']}<br>Término: {row['Termino_str']}<br>"
-                           f"SPI: {f'{spi_val:.2f}'}<br>"
-                           f"Avanço: {row['Pct_Concluida']*100:.0f}%<extra></extra>"),
-            showlegend=False,
-        ))
-
-    for _, row in df_marcos.iterrows():
-        y_ref = df_gantt[df_gantt["Projeto"] == row["Projeto"]]["Nome da Tarefa"].values
-        y_lbl = f"{row['Projeto']} — {y_ref[0]}" if len(y_ref) > 0 else row["Projeto"]
-        cor_m = "#C62828" if row["Marco_Atrasado"] else "#1E7E34"
-        fig_gantt.add_trace(go.Scatter(
-            x=[row["Termino_str"]], y=[y_lbl],
-            mode="markers+text",
-            marker=dict(symbol="diamond", size=14, color=cor_m,
-                        line=dict(width=1.5, color="white")),
-            text=[f"◆ {row['Nome da Tarefa']}"], textposition="top center",
-            textfont=dict(size=10, color=cor_m),
-            hovertemplate=(f"<b>Marco: {row['Nome da Tarefa']}</b><br>"
-                           f"Baseline: {row['Termino_Baseline_str']}<br>"
-                           f"Atual: {row['Termino_str']}<br>"
-                           f"{'⚠️ Atrasado' if row['Marco_Atrasado'] else '✅ No prazo'}<extra></extra>"),
-            showlegend=False,
-        ))
-
-    # Linha "Hoje" como shape manual (compatível com eixo de datas no Plotly recente)
-    fig_gantt.add_shape(
-        type="line", xref="x", yref="paper",
-        x0=hoje_str, x1=hoje_str, y0=0, y1=1,
-        line=dict(color="#4A90D9", width=2, dash="dash"),
-    )
-    fig_gantt.add_annotation(
-        x=hoje_str, y=1, yref="paper", text="Hoje",
-        showarrow=False, xanchor="left",
-        font=dict(size=11, color="#4A90D9"),
-    )
-    fig_gantt.update_layout(
-        barmode="overlay", plot_bgcolor="white", paper_bgcolor="white",
-        height=max(300, len(df_gantt)*60+80),
-        margin=dict(l=10,r=20,t=20,b=40),
-        xaxis=dict(type="date", gridcolor="#F0F0F0", tickformat="%b/%y"),
-        yaxis=dict(autorange="reversed"),
-    )
-    st.plotly_chart(fig_gantt, use_container_width=True)
-    st.markdown("<small style='color:#9AA5BE'>🔵 No prazo &nbsp;|&nbsp; 🟡 Atenção &nbsp;|&nbsp; "
-                "🔴 Crítico &nbsp;|&nbsp; ◆ Verde = Marco OK &nbsp;|&nbsp; ◆ Vermelho = Marco atrasado</small>",
-                unsafe_allow_html=True)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 11. SEÇÃO D — PONTOS CRÍTICOS
-# ──────────────────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">D. Matriz de Pontos Críticos — Planos de Ação</div>',
-            unsafe_allow_html=True)
-
-df_crit_f = df_fases[df_fases["SPI"].notna() & (df_fases["SPI"] < 0.90)].copy()
-df_crit_m = df_marcos[df_marcos["Marco_Atrasado"] == True].copy()
-df_criticos = pd.concat([df_crit_f, df_crit_m]).drop_duplicates(subset=["Projeto"])
-
-if df_criticos.empty:
-    st.success("✅ Nenhum desvio crítico identificado no portfólio selecionado.")
-else:
-    st.warning(f"⚠️ **{len(df_criticos)} projeto(s) com desvio crítico.** "
-               "Preencha os campos antes da reunião de diretoria.")
+    st.warning(f"⚠️ {len(df_crit)} projeto(s) requerem atenção da diretoria. "
+               "Preencha os campos abaixo antes da reunião.")
 
     if "acoes" not in st.session_state:
         st.session_state["acoes"] = {}
 
-    for _, row in df_criticos.iterrows():
-        pk = row["Projeto"]
+    for _, row in df_crit.iterrows():
+        pk  = row["Projeto"]
+        spi = row.get("SPI", None)
+        spi_str = f"{spi:.2f}" if (spi is not None and not np.isnan(spi)) else "N/A"
+
         if pk not in st.session_state["acoes"]:
             st.session_state["acoes"][pk] = {
                 "impacto":"", "causa":"", "plano":"",
                 "resp": row.get("Responsavel",""),
             }
 
-        spi_lbl = f"{row['SPI']:.2f}" if not pd.isna(row["SPI"]) else "N/A"
-        with st.expander(f"🔴 {pk} — SPI: {spi_lbl}", expanded=True):
-            ca, cb = st.columns(2)
-            with ca:
-                st.markdown(f"**Status:** {badge_spi(row['SPI'])}", unsafe_allow_html=True)
+        desvio_dias = int((
+            pd.to_datetime(row["Termino_str"]) -
+            pd.to_datetime(row["Termino_Baseline_str"])
+        ).days)
+
+        with st.expander(f"🔴 {pk}  |  SPI: {spi_str}  |  Desvio: +{desvio_dias} dias", expanded=True):
+            m1, m2, m3 = st.columns(3)
+            with m1:
                 st.markdown(f"**Avanço Físico:** {row['Pct_Concluida']*100:.0f}%")
-                st.markdown(f"**SV:** R$ {row['SV']:,.0f}".replace(",","."))
-            with cb:
                 st.markdown(f"**Término Previsto:** {row['Termino_str']}")
+            with m2:
                 st.markdown(f"**Baseline:** {row['Termino_Baseline_str']}")
-                desvio = (pd.to_datetime(row["Termino_str"]) -
-                          pd.to_datetime(row["Termino_Baseline_str"])).days
-                st.markdown(f"**Desvio:** {'🔴 +'+str(desvio)+' dias' if desvio>0 else '🟢 '+str(desvio)+' dias'}")
+                sv_val = row.get("SV", 0)
+                st.markdown(f"**SV (Variância Prazo):** R$ {sv_val:,.0f}".replace(",","."))
+            with m3:
+                badge = (
+                    '<span class="badge badge-red">CRÍTICO</span>' if (spi is not None and not np.isnan(spi) and spi < 0.90)
+                    else '<span class="badge badge-yellow">ATENÇÃO</span>'
+                )
+                st.markdown(badge, unsafe_allow_html=True)
+                if row.get("Marco_Atrasado"):
+                    st.markdown('<span class="badge badge-red">MARCO ATRASADO</span>',
+                                unsafe_allow_html=True)
 
             st.markdown("---")
-            c1,c2,c3,c4 = st.columns(4)
-            with c1:
+            fa, fb, fc, fd = st.columns(4)
+            with fa:
                 st.session_state["acoes"][pk]["impacto"] = st.text_area(
-                    "Impacto no Negócio", value=st.session_state["acoes"][pk]["impacto"],
-                    height=90, placeholder="Ex: Atraso impacta receita de R$ 500k", key=f"imp_{pk}")
-            with c2:
+                    "🏢 Impacto no Negócio",
+                    value=st.session_state["acoes"][pk]["impacto"],
+                    height=100, placeholder="Ex: Atraso impacta receita de R$ 500k no Q3",
+                    key=f"imp_{pk}")
+            with fb:
                 st.session_state["acoes"][pk]["causa"] = st.text_area(
-                    "Causa Raiz", value=st.session_state["acoes"][pk]["causa"],
-                    height=90, placeholder="Ex: Volume de dados 3x maior que estimado", key=f"cau_{pk}")
-            with c3:
+                    "🔍 Causa Raiz",
+                    value=st.session_state["acoes"][pk]["causa"],
+                    height=100, placeholder="Ex: Volume de dados 3x maior que estimado",
+                    key=f"cau_{pk}")
+            with fc:
                 st.session_state["acoes"][pk]["plano"] = st.text_area(
-                    "Plano de Ação", value=st.session_state["acoes"][pk]["plano"],
-                    height=90, placeholder="Ex: +2 DBAs por 3 semanas", key=f"pla_{pk}")
-            with c4:
+                    "🎯 Plano de Ação",
+                    value=st.session_state["acoes"][pk]["plano"],
+                    height=100, placeholder="Ex: +2 consultores por 3 semanas + revisão de escopo",
+                    key=f"pla_{pk}")
+            with fd:
                 st.session_state["acoes"][pk]["resp"] = st.text_input(
-                    "Responsável", value=st.session_state["acoes"][pk]["resp"], key=f"res_{pk}")
+                    "👤 Responsável",
+                    value=st.session_state["acoes"][pk]["resp"],
+                    key=f"res_{pk}")
+
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 12. EXPORTAÇÃO EXCEL
+# 11. EXPORTAÇÃO
 # ──────────────────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">Exportar Relatório Executivo</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-box">', unsafe_allow_html=True)
+st.markdown('<div class="section-header">📥 EXPORTAR RELATÓRIO EXECUTIVO</div>',
+            unsafe_allow_html=True)
 
 def gerar_excel(df_base, acoes):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df_exp = df_base.groupby("Projeto", as_index=False).agg(
+        # Aba 1: EVM
+        g = df_base.groupby("Projeto", as_index=False).agg(
             Portfolio=("Portfolio","first"),
             PV=("PV","sum"), EV=("EV","sum"), AC=("AC","sum"),
             Pct=("Pct_Concluida","mean"),
         )
-        df_exp["SPI"] = np.where(df_exp["PV"]>0,(df_exp["EV"]/df_exp["PV"]).round(3),np.nan)
-        df_exp["CPI"] = np.where(df_exp["AC"]>0,(df_exp["EV"]/df_exp["AC"]).round(3),np.nan)
-        df_exp.to_excel(writer, sheet_name="EVM_Consolidado", index=False)
+        g["SPI"] = np.where(g["PV"]>0,(g["EV"]/g["PV"]).round(3),np.nan)
+        g["CPI"] = np.where(g["AC"]>0,(g["EV"]/g["AC"]).round(3),np.nan)
+        g.to_excel(writer, sheet_name="EVM_Consolidado", index=False)
 
+        # Aba 2: Planos
         rows = [{"Projeto":p,"Impacto":d["impacto"],"Causa Raiz":d["causa"],
                  "Plano de Ação":d["plano"],"Responsável":d["resp"]}
                 for p,d in acoes.items()]
         if rows:
             pd.DataFrame(rows).to_excel(writer, sheet_name="Planos_de_Acao", index=False)
 
-        df_m = df[df["Marco"]==True][["Portfolio","Projeto","Nome da Tarefa",
-                                       "Termino_str","Termino_Baseline_str","Marco_Atrasado"]].copy()
-        df_m.columns=["Portfólio","Projeto","Marco","Término","Baseline","Atrasado"]
-        df_m.to_excel(writer, sheet_name="Marcos", index=False)
+        # Aba 3: Marcos
+        if not df_marcos.empty:
+            dm = df_marcos[["Portfolio","Projeto","Nome da Tarefa",
+                             "Termino_str","Termino_Baseline_str","Marco_Atrasado"]].copy()
+            dm.columns = ["Portfólio","Projeto","Marco","Término","Baseline","Atrasado"]
+            dm.to_excel(writer, sheet_name="Marcos", index=False)
+
     return output.getvalue()
 
-col_e1, _ = st.columns([1,4])
+col_e1, col_e2 = st.columns([1,4])
 with col_e1:
     if st.button("📥 Gerar Excel Executivo", use_container_width=True):
-        excel_bytes = gerar_excel(df, st.session_state.get("acoes", {}))
+        excel_bytes = gerar_excel(df, st.session_state.get("acoes",{}))
         st.download_button(
             "⬇️ Baixar Relatório (.xlsx)", data=excel_bytes,
-            file_name=f"relatorio_executivo_{date.today().isoformat()}.xlsx",
+            file_name=f"governanca_portfolio_{date.today().isoformat()}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-st.markdown("---")
+st.markdown('</div>', unsafe_allow_html=True)
 st.markdown(
-    f"<p style='text-align:center;color:#C0C8D8;font-size:11px'>"
+    f"<p style='text-align:center;color:#C0C8D8;font-size:11px;margin-top:20px'>"
     f"Dashboard Executivo · PMBOK® 8ª Edição · PMI · {date.today().strftime('%d/%m/%Y')}</p>",
     unsafe_allow_html=True,
 )
