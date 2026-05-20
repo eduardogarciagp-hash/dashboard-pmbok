@@ -206,8 +206,11 @@ def carregar_dados(arquivo_excel=None) -> pd.DataFrame:
     if df_raw["Pct_Concluida"].max() > 1:
         df_raw["Pct_Concluida"] = df_raw["Pct_Concluida"] / 100
 
-    # Normaliza coluna Marco
-    df_raw["Marco"] = df_raw["Marco"].astype(str).str.lower().isin(["sim", "true", "1", "yes"])
+    # Normaliza coluna Marco — cria como False se não existir no Excel
+    if "Marco" not in df_raw.columns:
+        df_raw["Marco"] = False
+    else:
+        df_raw["Marco"] = df_raw["Marco"].astype(str).str.lower().isin(["sim", "true", "1", "yes"])
 
     # Calcula EVM com função vetorial segura
     df_raw = calcular_evm(df_raw)
