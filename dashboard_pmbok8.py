@@ -430,9 +430,17 @@ else:
             showlegend=False,
         ))
 
-    fig_gantt.add_vline(x=hoje_str, line_color="#4A90D9", line_width=2, line_dash="dash",
-                        annotation_text="Hoje", annotation_position="top",
-                        annotation_font=dict(size=11, color="#4A90D9"))
+    # Linha "Hoje" como shape manual (compatível com eixo de datas no Plotly recente)
+    fig_gantt.add_shape(
+        type="line", xref="x", yref="paper",
+        x0=hoje_str, x1=hoje_str, y0=0, y1=1,
+        line=dict(color="#4A90D9", width=2, dash="dash"),
+    )
+    fig_gantt.add_annotation(
+        x=hoje_str, y=1, yref="paper", text="Hoje",
+        showarrow=False, xanchor="left",
+        font=dict(size=11, color="#4A90D9"),
+    )
     fig_gantt.update_layout(
         barmode="overlay", plot_bgcolor="white", paper_bgcolor="white",
         height=max(300, len(df_gantt)*60+80),
