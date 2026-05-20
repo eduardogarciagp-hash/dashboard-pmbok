@@ -243,9 +243,21 @@ def carregar_dados(arquivo_excel=None) -> pd.DataFrame:
         if col not in df_raw.columns:
             df_raw[col] = val
 
+    # Garante que Inicio e Termino existam — tenta variações de nome
+    for destino, alternativas in [
+        ("Inicio",  ["Início", "Start", "Data Início", "Data de Início"]),
+        ("Termino", ["Término", "Finish", "Data Término", "Data de Término"]),
+    ]:
+        if destino not in df_raw.columns:
+            for alt in alternativas:
+                if alt in df_raw.columns:
+                    df_raw.rename(columns={alt: destino}, inplace=True)
+                    break
+
     # Termino_Baseline = Termino se não existir coluna de baseline
     if "Termino_Baseline" not in df_raw.columns:
-        df_raw["Termino_Baseline"] = df_raw["Termino"]
+        col_ref = "Termino" if "Termino" in df_raw.columns else df_raw.columns[0]
+        df_raw["Termino_Baseline"] = df_raw[col_ref]
 
     # Converte % para decimal se vier como inteiro (ex: 75 → 0.75)
     df_raw["Pct_Concluida"] = pd.to_numeric(df_raw["Pct_Concluida"], errors="coerce").fillna(0)
