@@ -1044,8 +1044,8 @@ for proj in projetos_gov:
             col_titulo, col_del = st.columns([9, 1])
             with col_titulo:
                 linhas[idx]["titulo"] = st.text_input(
-                    f"Ponto crítico {idx + 1}" if not linha["titulo"] else "",
-                    value=linhas[idx]["titulo"],
+                    f"Ponto crítico {idx + 1}",
+                    value=linhas[idx].get("titulo", ""),
                     placeholder=f"Nome do ponto crítico {idx + 1}...",
                     key=f"titulo_{k}_{idx}",
                     label_visibility="collapsed",
@@ -1059,7 +1059,7 @@ for proj in projetos_gov:
             with c1:
                 linhas[idx]["impacto"] = st.text_area(
                     "📌 Impacto no Negócio",
-                    value=linhas[idx]["impacto"],
+                    value=linhas[idx].get("impacto", ""),
                     height=120,
                     placeholder="Descreva o impacto no negócio...",
                     key=f"impacto_{k}_{idx}",
@@ -1067,7 +1067,7 @@ for proj in projetos_gov:
             with c2:
                 linhas[idx]["causa"] = st.text_area(
                     "🔍 Causa Raiz (Hipótese)",
-                    value=linhas[idx]["causa"],
+                    value=linhas[idx].get("causa", ""),
                     height=120,
                     placeholder="Descreva a causa raiz identificada...",
                     key=f"causa_{k}_{idx}",
@@ -1075,7 +1075,7 @@ for proj in projetos_gov:
             with c3:
                 linhas[idx]["plano"] = st.text_area(
                     "✅ Plano de Ação",
-                    value=linhas[idx]["plano"],
+                    value=linhas[idx].get("plano", ""),
                     height=120,
                     placeholder="Ações, responsáveis e prazo...",
                     key=f"plano_{k}_{idx}",
