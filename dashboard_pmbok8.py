@@ -634,11 +634,22 @@ for proj in sorted(df_view['projeto'].unique()):
 
     # Calcula segmentos de fase a partir dos marcos curados
     def _find_marco_data(marcos_list, keywords):
+        from datetime import datetime as _dt
+        def _sort_key(x):
+            if 'data' in x:   return x['data']
+            if 'termino' in x and x['termino'] is not None: return str(x['termino'])
+            return ''
+        def _to_ms(m):
+            if 'data' in m:
+                return int(_dt.strptime(m['data'], '%Y-%m-%d').timestamp() * 1000)
+            if 'termino' in m and m['termino'] is not None:
+                return int(m['termino'])  # already ms timestamp
+            return None
         for kw in keywords:
-            for m in sorted(marcos_list, key=lambda x: x['data']):
-                if kw.lower() in m['nome'].lower():
-                    from datetime import datetime as _dt
-                    return int(_dt.strptime(m['data'], '%Y-%m-%d').timestamp() * 1000)
+            for m in sorted(marcos_list, key=_sort_key):
+                nome = (m.get('nome') or '').lower()
+                if kw.lower() in nome:
+                    return _to_ms(m)
         return None
 
     _kickoff_ms    = _find_marco_data(marcos, ['kick-off','kickoff','kick off'])
