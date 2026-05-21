@@ -128,29 +128,32 @@ def parse_xml(file_obj, project_name: str) -> list[dict]:
             fn  = ext_map.get(fid, fid)
             cf[fn] = val
 
-        pv      = _cfn(cf, 'Número4') or 0
-        ev_val  = _cfn(cf, 'Número6') or 0
+        pv     = _cfn(cf, 'Número4') or 0
+        ev_val = _cfn(cf, 'Número6') or 0
 
-        # IDP = %_concluido / %_planejado da linha L1 do projeto
-        # %_concluido = Texto1 (BDF/Esteira) ou Número1 (Cockpit)
-        # %_planejado = Número7 (BDF/Esteira)
-        # IDP direto  = Texto3 (Cockpit, já calculado pelo MS Project)
-        def _cfpct(k):
-            v = (cf.get(k, '') or '').replace(',', '.').replace('%', '').strip()
-            try: return float(v) if v else None
-            except: return None
+        # ── IDP — regra por formato de arquivo ───────────────────────────────
+        # Cockpit Engenharia: Texto3 contém o IDP calculado pela fórmula
+        #   do MS Project (fórmula customizada da empresa). Número6 = 0 neste
+        #   template, por isso Texto3 é a fonte correta.
+        # BDF / Esteira Analytics: usam Número6 (EV dias) e Número4 (PV dias).
+        #   IDP = Número6 / Número4.
+        # Detecção automática: se Texto3 tem valor numérico válido E Número6=0
+        #   → usa Texto3 (Cockpit). Caso contrário → Número6/Número4.
 
-        pct_real = _cfpct('Texto1') or _cfpct('Número1')
-        pct_plan = _cfpct('Número7')
-        idp_direct_raw = (cf.get('Texto3', '') or '').replace(',', '.').strip()
-        try:    idp_direct = float(idp_direct_raw)
-        except: idp_direct = None
+        idp_direct = None
+        _t3 = (cf.get('Texto3', '') or '').replace(',', '.').strip()
+        try:
+            _t3_val = float(_t3)
+            if _t3_val > 0:
+                idp_direct = _t3_val
+        except:
+            pass
 
-        if pct_plan and pct_plan > 0 and pct_real is not None:
-            spi = round(pct_real / pct_plan, 4)
-        elif idp_direct is not None:
+        if idp_direct is not None and ev_val == 0:
+            # Cockpit: usa fórmula MS Project via Texto3
             spi = round(idp_direct, 4)
         elif pv > 0 and ev_val > 0:
+            # BDF / Esteira: IDP = EV / PV (dias)
             spi = round(ev_val / pv, 4)
         else:
             spi = None
@@ -450,15 +453,32 @@ pct_media_calc   = df_root['pct'].mean() if not df_root.empty else 0
 crits_count_calc = df_view[(df_view['spi_num'] < spi_limiar) & df_view['spi_num'].notna()]['projeto'].nunique()
 marcos_tot_calc  = df_view[df_view['is_milestone']].shape[0]
 
-# IDP por projeto: pega a primeira linha L1 de cada projeto
+# IDP por projeto: consolida todas as L1 de cada projeto
+# Regra: se todas as L1 têm ev=0 (Cockpit) → média ponderada pelo pv via spi_num
+#         senão → soma(EV) / soma(PV) de todas as L1 (BDF, Esteira)
 _l1_rows = df_view[
     (df_view['nivel'] == 1) &
     (~df_view['nome'].isin(['MS Project_Teste_Formulas_2', 'NOME DO PROJETO']))
-].drop_duplicates(subset='projeto', keep='first')
+]
 
 idp_por_projeto = {}
-for _, r in _l1_rows.iterrows():
-    idp_por_projeto[r['projeto']] = round(r['spi_num'], 4) if pd.notna(r['spi_num']) else None
+for proj, grp in _l1_rows.groupby('projeto'):
+    total_pv = grp['pv'].sum()
+    total_ev = grp['ev'].sum()
+    if total_ev > 0 and total_pv > 0:
+        # BDF / Esteira: IDP = EV total / PV total
+        idp_por_projeto[proj] = round(total_ev / total_pv, 4)
+    else:
+        # Cockpit: ev=0, usa spi_num (Texto3) ponderado pelo pv
+        valid = grp[grp['spi_num'].notna() & (grp['pv'] > 0)]
+        if not valid.empty:
+            idp_por_projeto[proj] = round(
+                (valid['spi_num'] * valid['pv']).sum() / valid['pv'].sum(), 4
+            )
+        elif grp['spi_num'].notna().any():
+            idp_por_projeto[proj] = round(grp['spi_num'].dropna().mean(), 4)
+        else:
+            idp_por_projeto[proj] = None
 
 _vals = [v for v in idp_por_projeto.values() if v is not None]
 spi_medio_calc = round(sum(_vals) / len(_vals), 4) if _vals else None
@@ -1598,7 +1618,7 @@ if 'gov_data' not in st.session_state:
 if 'gov_del' not in st.session_state:
     st.session_state.gov_del = {}
 # Versão dos defaults — incrementar para forçar recarga do conteúdo PMO
-_GOV_VERSION = "v2"
+_GOV_VERSION = "v3"
 if st.session_state.get('gov_version') != _GOV_VERSION:
     st.session_state.gov_data = {}
     st.session_state.gov_version = _GOV_VERSION
@@ -1609,56 +1629,172 @@ if st.session_state.get('gov_version') != _GOV_VERSION:
 GOV_DEFAULTS = {
     "Business_Data_Fabric": [
         {
-            "titulo": "Implantação MS Fabric com SPI crítico (0,48)",
-            "impacto": "Risco alto de não entrega do Go-Live de Dez/2026. Com SPI=0,48 na Implantação & Implementação, o projeto realiza menos da metade do trabalho planejado. O atraso impacta diretamente a migração dos dashboards Power BI, o POV e o cutover do SAC, comprometendo o retorno sobre o investimento previsto para 2027.",
-            "causa": "DOWNStream da Implantação com SPI=0,30 — ritmo de execução crítico. Revisões jurídicas das minutas com SPI=0,36 (Fabric) e 0,40 (Implantação) bloqueando assinaturas de contratos. Recursos DataEX/HVAR com alocação insuficiente frente ao escopo contratado. Dependência de transporte de objetos SAC não resolvida.",
-            "plano": "1. Reunião de crise com DataEX e HVAR até 27/05 para nivelamento de capacidade nos épicos prioritários. 2. William/Supply consolidar sessões jurídicas para fechar minuta MS Fabric até 02/06. 3. Rodrigo Evangelista escalar bloqueios do SAC Cutover ao PMO semanalmente. 4. Revisão do cronograma com sponsor para avaliar redução de escopo Q3 se SPI não atingir 0,75 até 15/06.",
+            "titulo": "Implantação MS Fabric — IDP 0,62 com DOWNStream em colapso (SPI=0,30)",
+            "impacto": (
+                "O projeto Business Data Fabric apresenta IDP consolidado de 0,62 — realiza apenas 62% do trabalho previsto para a data. "
+                "O gargalo mais crítico está no DOWNStream da Implantação com SPI=0,30: apenas 29% do trabalho foi executado no período em que 88% deveria estar concluído. "
+                "Sem recuperação imediata, o Go-Live de Dezembro/2026 está em risco direto, incluindo a migração dos dashboards Power BI para MS Fabric, o POV de Faturamento e o cutover do SAC. "
+                "O impacto financeiro se estende ao ROI previsto para 2027 com a plataforma unificada de dados."
+            ),
+            "causa": (
+                "1. Revisão da Minuta pelo Jurídico (SPI=0,36 e 0,40): dois contratos críticos — MS Fabric e Implantação — com minutas travadas no jurídico, bloqueando assinaturas e início formal das atividades downstream. "
+                "2. VALIDAÇÃO SSA com SPI=0,37: ambiente SAC PRD/QAS sem equalização concluída, impedindo o cutover planejado para Junho. "
+                "3. Recursos DataEX e HVAR com alocação abaixo do necessário para o escopo contratado. "
+                "4. Treinamento Técnico de Data Analysts com SPI=0,27: capacitação de domínios praticamente não iniciada, gerando risco de adoção pós-implantação."
+            ),
+            "plano": (
+                "1. [Imediato] PMO convoca reunião de crise com DataEX/HVAR até 27/Mai para nivelamento de capacidade — foco nos épicos 3 a 6 do DOWNStream. "
+                "2. [Até 02/Jun] William/Supply consolidar sessão jurídica única para fechamento simultâneo das duas minutas (Fabric + Implantação). "
+                "3. [Até 15/Jun] Rodrigo Evangelista entrega plano de sprint de equalização PRD/QAS com critérios de aceite definidos e aprovados pelo sponsor. "
+                "4. [Até 30/Jun] Iniciar trilha de capacitação de Data Analysts em blocos de 2 semanas — sem essa entrega o CoE não opera. "
+                "5. [Gate 30/Jun] Revisão executiva: se SPI não atingir 0,75, acionar plano de contingência de escopo reduzido para Go-Live."
+            ),
         },
         {
-            "titulo": "SAC Test Tenant — Risco de Go-Live sem equalização PRD/QAS",
-            "impacto": "Go-Live do SAC previsto para 02/Jul/2026 em risco. Com SPI=0,62 e pendências críticas de equalização PRD/QAS e validação SSA, um Go-Live não homologado pode gerar instabilidade operacional no ambiente produtivo e retrabalho pós-implantação.",
-            "causa": "VALIDAÇÃO SSA com SPI=0,37 — atividade de equalização iniciada mas muito abaixo do planejado. Transporte de objetos pendente entre ambientes. Processo de Change (Gestão de Mudança) ainda não iniciado, criando risco regulatório interno.",
-            "plano": "1. Sprint dedicado de Equalização PRD/QAS: Rodrigo lidera de 25/05 a 20/06. 2. Iniciar processo de Change imediatamente (responsável: Gestão de Mudança). 3. Congelamento do ambiente PRD na data prevista 24/06 — não negociável. 4. Definir critérios de Go/No-Go com sponsor até 15/06.",
+            "titulo": "SAC Test Tenant — Go-Live 02/Jul em risco com SPI=0,62",
+            "impacto": (
+                "O SAC Test Tenant (Rodrigo Evangelista) tem Go-Live planejado para 02/Jul/2026 com SPI=0,62. "
+                "A equalização dos ambientes PRD/QAS está incompleta, a VALIDAÇÃO SSA atingiu apenas 37% do planejado, e o processo formal de Gestão de Mudança (Change) não foi iniciado. "
+                "Um Go-Live sem homologação adequada representa risco operacional direto no ambiente produtivo — instabilidade de dados SAC em produção pode paralisar operações críticas do negócio."
+            ),
+            "causa": (
+                "1. Correção de ambientes SolvePlan/Rodrigo Evangelista com SPI=0,60 — atividades de equalização atrasadas em relação ao baseline. "
+                "2. Transporte de objetos entre ambientes QAS→PRD ainda pendente, bloqueando a validação final. "
+                "3. Processo de Change não iniciado: sem aprovação formal da mudança, o Go-Live não pode ser executado dentro do processo regulatório interno. "
+                "4. Congelamento do ambiente PRD previsto para 24/Jun sem pré-requisitos concluídos."
+            ),
+            "plano": (
+                "1. [25/Mai–20/Jun] Sprint dedicado de equalização PRD/QAS liderado por Rodrigo — entrega incremental semanal reportada ao PMO. "
+                "2. [Até 28/Mai] Abrir processo de Change imediatamente — responsável: Gestor de Mudança designado. "
+                "3. [Até 15/Jun] Definir critérios formais de Go/No-Go com sponsor e área de negócio. "
+                "4. [24/Jun] Congelamento do ambiente PRD — data não negociável. Qualquer pendência aberta nessa data ativa o plano de contingência. "
+                "5. [Contingência] Se Go-Live não puder ocorrer em 02/Jul, definir janela alternativa de Jul/2026 com mínimo impacto operacional."
+            ),
         },
         {
-            "titulo": "Letramento e Governança de Dados — Capacitação atrasada (SPI=0,40)",
-            "impacto": "Data Owners, Data Custodians e Data Citizens não capacitados comprometem a adoção do modelo de Governança de Dados e o funcionamento do CoE. Risco de o modelo técnico ser implementado sem os guardiões de dado habilitados, tornando a governança ineficaz.",
-            "causa": "Treinamentos técnicos com SPI=0,27 — praticamente não iniciados. Publicação da Política de Governança e Implantação do Processo de Segurança de Dados zerados. Domínios Indústria e Agropecuária com catálogos de dados ainda não concluídos.",
-            "plano": "1. Consolidar trilha de treinamentos em blocos intensivos de 2 semanas (Jun-Jul). 2. Publicar Política de Governança de Dados até 30/06 — responsável: Delaware. 3. Priorizar certificação dos Data Owners dos dois domínios ativos antes de Jul/2026. 4. Escalar ao sponsor se recursos de treinamento não forem disponibilizados até 30/05.",
+            "titulo": "Governança de Dados — Letramento e capacitação com SPI=0,40",
+            "impacto": (
+                "O pilar de Governança do BDF apresenta SPI=0,83 no nível L1, mas o DOWNStream de Letramento e Capacitação tem SPI=0,40 — realizou apenas 39% do planejado. "
+                "Data Owners, Data Custodians e Data Citizens dos Domínios Indústria e Agropecuária não estão certificados. "
+                "Sem esses guardiões habilitados, o modelo de Governança de Dados 1.0 entregue pela Delaware não será operado corretamente, tornando o investimento ineficaz e o catálogo de dados inutilizável."
+            ),
+            "causa": (
+                "1. Treinamento Técnico de Data Analysts com SPI=0,27 e Data Transforms praticamente não iniciado. "
+                "2. Publicação da Política de Governança de Dados (Abr/2026) zerada — sem política publicada não há base normativa para o programa. "
+                "3. Domínios Indústria (55%) e Agropecuária (52%) com catálogos de dados e monitoramento incompletos. "
+                "4. Processo de Quality Gate definido mas sem aplicação nos domínios ativos."
+            ),
+            "plano": (
+                "1. [Até 30/Mai] Delaware publica Política de Governança de Dados 1.0 — pré-requisito para todos os treinamentos subsequentes. "
+                "2. [Jun–Jul] Trilha intensiva: Data Owners e Custodians (2 semanas) → Data Citizens (2 semanas) → Data Analysts (4 semanas). "
+                "3. [Até 30/Jun] Concluir catálogos de dados dos Domínios Indústria e Agropecuária com Quality Gate aplicado. "
+                "4. [Jul/2026] Cerimônia formal de ativação do CoE com presença do sponsor — marco de encerramento da fase de capacitação."
+            ),
         },
     ],
     "Cockpit_Engenharia": [
         {
-            "titulo": "Aprovação TAP bloqueada — Marcel com SPI=0,64",
-            "impacto": "A não aprovação formal da TAP por Marcel bloqueia a formalização do contrato com IntechPRO para a FASE 1 e impede o início regulatório da FASE 2. Sem a TAP aprovada, o projeto opera sem autorização formal do sponsor, criando risco de cancelamento ou questionamento de investimento.",
-            "causa": "Marcel com disponibilidade insuficiente no período crítico de aprovação. Ciclo de aprovação mais longo que o planejado (SPI=0,85 no processo de aprovação da TAP). Dependência sequencial: sem TAP → sem contrato → sem Kick-off formal FASE 2.",
-            "plano": "1. Agendar sessão executiva dedicada com Marcel esta semana — Dumont prepara resumo de 1 página. 2. Paralelizar: iniciar análise dos dashs SolvePlan da FASE 2 independente da TAP. 3. PMO escalona ao patrocinador executivo se aprovação não ocorrer até 30/05. 4. Revisão do impacto no cronograma da FASE 2 caso TAP atrase mais de 2 semanas.",
+            "titulo": "Aprovação TAP por Marcel — Gargalo crítico no caminho do projeto (SPI=0,64)",
+            "impacto": (
+                "O Cockpit Engenharia opera com IDP=0,98 (fórmula MS Project), indicando desempenho geral satisfatório. "
+                "Porém, a aprovação da TAP por Marcel com SPI=0,64 é o único ponto de falha que pode comprometer toda a FASE 2. "
+                "Sem TAP formalmente aprovada: o contrato com IntechPRO não pode ser assinado, o Kick-off da FASE 2 (ajustes SolvePlan) não pode ser formalizado, e o Go-Live de Out/2026 fica em risco de postergação. "
+                "O projeto está essencialmente com uma dependência crítica de uma única pessoa em uma única atividade."
+            ),
+            "causa": (
+                "1. Marcel com disponibilidade insuficiente no período — múltiplas demandas concorrentes fora do projeto. "
+                "2. Ciclo de aprovação mais longo que o planejado: o processo de aprovação da TAP (SPI=0,85 na fase de solicitação) não foi priorizado adequadamente. "
+                "3. Ausência de escalada formal: o PMO não ativou o caminho de escalada executiva dentro do prazo estabelecido. "
+                "4. Dependência sequencial rígida: aprovação TAP → assinatura contrato → Kick-off FASE 2, sem paralelismo possível."
+            ),
+            "plano": (
+                "1. [Esta semana] Dumont agenda sessão de 30 minutos com Marcel — leva resumo executivo de 1 página com os riscos de atraso mapeados. "
+                "2. [Até 30/Mai] Se Marcel não aprovar, PMO escala formalmente ao patrocinador executivo com registro documentado. "
+                "3. [Imediato] Paralelizar o que for possível: iniciar análise dos dashs SolvePlan (FASE 2 UPStream) independente da TAP. "
+                "4. [Até 05/Jun] Revisão do impacto no cronograma da FASE 2: mapear quais atividades podem iniciar sem TAP e quais ficam bloqueadas. "
+                "5. [Contingência] Se TAP não aprovada até 10/Jun, revisar data do Go-Live com sponsor."
+            ),
         },
         {
-            "titulo": "Testes Unitários FASE 1 incompletos — risco de qualidade",
-            "impacto": "Com SPI=0,91 e 95% de conclusão nos testes unitários, há risco de o cockpit ir a produção com defeitos não identificados. Testes integrados ainda não iniciados (0%) aumentam o risco de regressão no ambiente de homologação e atraso no Go-Live de Out/2026.",
-            "causa": "Recursos técnicos divididos entre conclusão dos testes unitários e preparação da FASE 2 (análise SolvePlan). Cobertura de testes abaixo do critério de aceite definido na EF aprovada pelo Key-user.",
-            "plano": "1. Alocar 2 dias dedicados exclusivamente a testes até 29/05 — sem desvio para FASE 2. 2. Iniciar Testes Integrados imediatamente após conclusão dos unitários. 3. Definir critério formal de aceite com Amanda (Key-user) antes da homologação. 4. Revisão de Go/No-Go para Go-Live com PMO na semana de 02/06.",
+            "titulo": "Testes FASE 1 — Integrados não iniciados, risco de qualidade no Go-Live",
+            "impacto": (
+                "O DOWNStream FASE 1 está em 90% de conclusão, mas os Testes Integrados estão em 0% — ainda não iniciados. "
+                "Os Testes Unitários atingiram 95%, mas com cobertura possivelmente abaixo do critério de aceite da EF aprovada por Amanda (Key-user). "
+                "Ir ao Go-Live sem testes integrados completos representa risco real de defeitos em produção nas interfaces entre módulos do Cockpit, podendo gerar retrabalho pós-implantação e impacto na operação de engenharia."
+            ),
+            "causa": (
+                "1. Recursos técnicos divididos entre finalização dos testes unitários e início das análises da FASE 2 (SolvePlan). "
+                "2. Prazo apertado: Testes Unitários previsto para terminar 26/Mai, Integrados para 29/Mai — janela de apenas 3 dias. "
+                "3. Critério de aceite dos testes não formalmente validado com Amanda antes da execução."
+            ),
+            "plano": (
+                "1. [Até 29/Mai] Concluir 100% dos Testes Unitários — sem desvio de recursos para FASE 2. "
+                "2. [27–29/Mai] Validação formal dos resultados dos testes com Amanda (Key-user) — assinatura do termo de aceite. "
+                "3. [Até 02/Jun] Iniciar e concluir Testes Integrados — prioridade máxima na semana. "
+                "4. [Até 05/Jun] Reunião de Go/No-Go para liberação do ambiente de homologação com PMO e Key-user. "
+                "5. Apenas após aceite dos testes integrados iniciar a FASE 2."
+            ),
         },
     ],
     "Esteira_Analytics": [
         {
-            "titulo": "CEO Digital Boardroom com SPI crítico (0,37) — risco de não entrega",
-            "impacto": "A Etapa 3 do CEO Digital Boardroom (4 painéis executivos) com SPI=0,05 e apenas 4% concluído representa o maior risco do portfólio de Esteira Analytics. Go-Live previsto para Nov/2026 em risco severo, comprometendo a visibilidade executiva digital prometida à liderança.",
-            "causa": "Escopo da Etapa 3 ainda em definição — ausência de owner dos 4 painéis executivos. Aprovação da proposta Bridge pendente para liberação de recursos. Dependência de dados do CEO Digital Boardroom não estruturados. Estratégia de Dados (Etapa 2) concluída mas sem transição formal para Etapa 3.",
-            "plano": "1. Reunião de alinhamento com Bridge até 28/05 para definir MVP dos 4 painéis. 2. Nomear Product Owner interno para o Digital Boardroom até 30/05. 3. Definir Go-Live parcial (2 painéis) como meta intermediária até Ago/2026. 4. Escalar ao CIO se aprovação do escopo não ocorrer até 05/06.",
+            "titulo": "CEO Digital Boardroom — Etapa 3 com SPI=0,05, Go-Live Nov/2026 em risco severo",
+            "impacto": (
+                "A Etapa 3 do CEO Digital Boardroom — entrega dos 4 painéis executivos — apresenta SPI=0,05 com apenas 4% concluído de 4,86% planejado. "
+                "Esse é o pior índice de todo o portfólio. Com Go-Live previsto para 30/Nov/2026, o projeto tem menos de 7 meses para entregar 4 painéis executivos complexos, incluindo indicadores críticos da C-Suite. "
+                "A não entrega compromete diretamente o pilar de 'Visibilidade Executiva Digital' do programa de transformação de dados da empresa, gerando risco reputacional do PMO perante a diretoria."
+            ),
+            "causa": (
+                "1. Escopo da Etapa 3 ainda indefinido: ausência de owner designado para os 4 painéis e KPIs da C-Suite não mapeados. "
+                "2. Aprovação da proposta Bridge (consultoria) pendente — sem contrato, não há recursos técnicos alocados para a Etapa 3. "
+                "3. Transição formal entre Etapa 2 (Estratégia de Dados, 100% concluída) e Etapa 3 não executada — gap de governança entre fases. "
+                "4. Dados-fonte dos painéis executivos não estruturados: CEO Digital Boardroom depende de dados que ainda não estão disponíveis na camada analítica."
+            ),
+            "plano": (
+                "1. [Até 28/Mai] Reunião de alinhamento com Bridge para definir MVP dos 4 painéis — escopo mínimo viável para Go-Live Nov/2026. "
+                "2. [Até 30/Mai] Nomear Product Owner interno do CEO Digital Boardroom com dedicação mínima de 40%. "
+                "3. [Até 05/Jun] Mapear os dados-fonte de cada painel e validar disponibilidade na camada analítica — sem dados não há painel. "
+                "4. [Jun/2026] Definir Go-Live parcial como meta: 2 painéis até Ago/2026, 2 painéis restantes até Nov/2026. "
+                "5. [Gate Jun/2026] Se aprovação Bridge não concluída, escalar ao CIO com análise de impacto formal."
+            ),
         },
         {
-            "titulo": "Entregas Q2 sem escopo definido — SPI=0,54 em risco",
-            "impacto": "Entregas Q2 com SPI=0,54 e escopo 'A Definir' representam risco de entrega nula no período Abr-Jun/2026. Sem owner e sem definição, o período Q2 pode ser perdido, acumulando pressão sobre Q3 e Q4 e comprometendo o valor entregue no segundo semestre.",
-            "causa": "Processo de Definição de Entregas Q2 (UPStream) com SPI=0,50 — planejamento do quarter não concluído. Ausência de responsável designado para as entregas Q2. Backlog de demandas não priorizado para o período.",
-            "plano": "1. Revisão de escopo Q2 com todas as áreas demandantes até 27/05. 2. Nomear responsável por cada entrega Q2 até 30/05. 3. Realizar sessão de priorização do backlog Q3 em paralelo para não repetir o problema. 4. PMO monitora definição semanal com alerta ao sponsor se não concluída até 05/06.",
+            "titulo": "Entregas Q2 — SPI=0,54 com escopo 'A Definir' e ausência de owner",
+            "impacto": (
+                "As Entregas Q2 da Esteira Analytics (Abr–Jun/2026) têm SPI=0,54 com o único entregável listado como 'A Definir'. "
+                "Com o encerramento do Q2 previsto para 30/Jun/2026, existe risco concreto de o quarter ser encerrado sem nenhuma entrega formal registrada. "
+                "Isso representa perda de valor entregue no período e acúmulo de pressão sobre Q3 e Q4, que já têm seus próprios escopos indefinidos."
+            ),
+            "causa": (
+                "1. UPStream Esteira com SPI=0,50: o processo de definição de entregas Q2 não foi concluído dentro do prazo planejado. "
+                "2. Ausência de owner designado para as entregas Q2 — nenhum responsável formal por escopo, prazo e qualidade. "
+                "3. Backlog de demandas das áreas não foi priorizado para o período Q2, gerando vazio de planejamento."
+            ),
+            "plano": (
+                "1. [Até 27/Mai] Convocar sessão de escopo Q2 com todas as áreas demandantes — output: lista priorizada de no mínimo 3 entregas. "
+                "2. [Até 30/Mai] Nomear owner por entrega Q2 com comprometimento formal de prazo. "
+                "3. [Paralelo] Iniciar definição de entregas Q3 já nessa sessão — não repetir o mesmo erro no próximo quarter. "
+                "4. [Semanal] PMO monitora progresso Q2 com alerta vermelho ao sponsor se 30/Jun chegar sem entregas formalmente aceitas."
+            ),
         },
         {
-            "titulo": "UPStream Esteira Analytics — Definições Q3 e Q4 não iniciadas",
-            "impacto": "Com SPI=0,50 no UPStream e definições de Q3 e Q4 zeradas, o planejamento das entregas do segundo semestre está comprometido. A ausência de planejamento antecipado reduz a capacidade de alocação de recursos e aumenta o risco de replanejamento de emergência em Julho.",
-            "causa": "Modelo de delivery por quarters não está cumprindo o ciclo de planejamento antecipado (definição Q3 deveria iniciar em Maio). Recursos da área focados em execução Q1 sem reservar capacidade para planejamento futuro.",
-            "plano": "1. Iniciar definição de entregas Q3 imediatamente — responsável: líder UPStream. 2. Reservar 20% da capacidade da equipe para planejamento prospectivo a partir de Jun. 3. Revisão do modelo de delivery com sponsor para incluir cerimônia formal de planejamento trimestral. 4. Deadline: definição Q3 concluída até 03/Jul e Q4 até 02/Out.",
+            "titulo": "Estratégia de Dados e Digital Boardroom — IDP 0,51 com DOWNStream crítico",
+            "impacto": (
+                "O sub-projeto Estratégia de Dados e Digital Boardroom tem IDP=0,51 — realiza metade do trabalho planejado. "
+                "O DOWNStream deste sub-projeto, que engloba o CEO Digital Boardroom, está com SPI=0,50 e Fim=Nov/2026. "
+                "Se o ritmo não for corrigido, o encerramento do programa de Estratégia de Dados ficará incompleto, comprometendo a entrega do roadmap digital prometido para 2026."
+            ),
+            "causa": (
+                "1. CEO Digital Boardroom com SPI=0,37 puxando o índice do sub-projeto para baixo. "
+                "2. UPStream concluído (100%) mas sem transição estruturada para o DOWNStream — gap de handoff entre fases. "
+                "3. Capacidade técnica da consultoria Bridge não contratada formalmente para a fase de execução."
+            ),
+            "plano": (
+                "1. Tratar o CEO Digital Boardroom como projeto independente com PMO dedicado a partir de Jun/2026. "
+                "2. Formalizar o handoff entre UPStream (concluído) e DOWNStream com ata de reunião e aceite do patrocinador. "
+                "3. Contrato Bridge: definir prazo limite de assinatura (05/Jun) com cláusula de penalidade por atraso no início. "
+                "4. Revisão mensal do IDP do sub-projeto com o sponsor — alerta se IDP não atingir 0,70 até Jul/2026."
+            ),
         },
     ],
 }
