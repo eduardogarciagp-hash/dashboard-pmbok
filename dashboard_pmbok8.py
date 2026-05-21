@@ -999,103 +999,71 @@ function openModalMarco(m, p){{
     components.html(html_roadmap, height=total_h, scrolling=False)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 11. SECTION 2 — GOVERNANÇA DE INCERTEZAS (separada por projeto)
+# ──────────────────────────────────────────────────────────────────────────────
+# 11. SECTION 2 — GOVERNANÇA DE INCERTEZAS (uma linha por projeto, editável)
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown(
     '<div class="section-title">Section 2 — Governança de Incertezas: '
     'Pontos Críticos e Planos de Ação</div>',
     unsafe_allow_html=True,
 )
-st.caption(f"Exibindo tarefas/fases com SPI < {spi_limiar} · Separado por projeto")
 
-df_criticos = df_view[
-    (df_view['spi_num'] < spi_limiar) &
-    df_view['spi_num'].notna()
-].copy()
+# Persistência dos campos editáveis
+if 'gov_data' not in st.session_state:
+    st.session_state.gov_data = {}
 
-if df_criticos.empty:
-    st.success(f"✅ Nenhuma tarefa com SPI abaixo de {spi_limiar} no portfólio atual.")
-else:
-    projetos_com_crits = df_criticos['projeto'].unique().tolist()
+# Uma linha por projeto
+projetos_gov = sorted(df_view['projeto'].unique().tolist())
 
-    for proj in projetos_com_crits:
-        df_proj_crit = df_criticos[df_criticos['projeto'] == proj].copy()
-        df_proj_crit = df_proj_crit.sort_values(['nivel', 'spi_num'])
-        n_crits = len(df_proj_crit['nome'].unique())
-        spi_min = df_proj_crit['spi_num'].min()
-        alerta_proj = "🔴" if spi_min < 0.80 else "⚠️"
+for proj in projetos_gov:
+    # IDP do projeto para badge de alerta
+    idp_val = idp_por_projeto_final.get(proj)
+    if idp_val and idp_val < 0.95:
+        alerta = "🔴"
+    elif idp_val and idp_val < 0.99:
+        alerta = "⚠️"
+    else:
+        alerta = "✅"
 
-        label_expander = (
-            f"{alerta_proj} {proj} "
-            f"— {n_crits} ponto(s) crítico(s) "
-            f"· SPI mín: {spi_min:.2f}"
-        )
+    idp_txt = f"IDP {idp_val:.2f}" if idp_val else "IDP N/A"
+    label_exp = f"{alerta} {proj} · {idp_txt}"
 
-        with st.expander(label_expander, expanded=False):
+    with st.expander(label_exp, expanded=False):
+        # Chave única por projeto
+        k = proj.replace(" ", "_").replace("/", "_")
 
-            # ── IA ou estático ──────────────────────────────────────────
-            items_ia = []
-            if usar_ia:
-                with st.spinner(f"🤖 Gerando insights para {proj}..."):
-                    crit_payload = df_proj_crit[
-                        ['nome', 'nivel', 'spi_num', 'pct', 'status', 'resp',
-                         'termino', 'baseline_termino']
-                    ].rename(columns={'spi_num': 'spi', 'termino': 'fim_atual',
-                                       'baseline_termino': 'baseline'}).to_dict('records')
-                    result = gerar_insights_ia(proj, json.dumps(crit_payload, default=str))
-                    if result['status'] == 'ok':
-                        items_ia = result['items']
+        if k not in st.session_state.gov_data:
+            st.session_state.gov_data[k] = {
+                "impacto": "",
+                "causa":   "",
+                "plano":   "",
+            }
 
-            ia_map = {it.get('nome', '').strip(): it for it in items_ia}
-
-            # ── Renderiza cards ─────────────────────────────────────────
-            seen = set()
-            for _, row in df_proj_crit.iterrows():
-                key = row['nome'].strip()
-                if key in seen:
-                    continue
-                seen.add(key)
-
-                spi_v     = row['spi_num']
-                row_class = "crit-row-red" if spi_v < 0.80 else "crit-row-yellow"
-                spi_badge = badge(spi_v)
-
-                ia_item = ia_map.get(key, {})
-                impacto  = ia_item.get('impacto',  '— Análise IA não disponível; revise manualmente.')
-                causa    = ia_item.get('causa_raiz','— Identificar gargalo com o responsável.')
-                plano    = ia_item.get('plano_acao','— Agendar revisão semanal com owner.')
-
-                fim_str  = row['termino'].strftime('%d/%m/%Y') if pd.notna(row['termino']) else '-'
-                base_str = row['baseline_termino'].strftime('%d/%m/%Y') if pd.notna(row['baseline_termino']) else '-'
-
-                st.markdown(f"""
-<div class="{row_class}">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-    <span style="font-size:13px;font-weight:600;color:#1B2A4A;">
-      {'&nbsp;' * (row['nivel']-1) * 4}L{row['nivel']} — {key[:65]}
-    </span>
-    <span>{spi_badge}&nbsp;&nbsp;
-      <span style="font-size:11px;color:#6B7A99">{row['pct']:.0f}% concluído &nbsp;|&nbsp; Fim: {fim_str} &nbsp;|&nbsp; Baseline: {base_str}</span>
-    </span>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-    <div>
-      <div class="crit-label">📌 Impacto no Negócio</div>
-      <div class="crit-value">{impacto}</div>
-    </div>
-    <div>
-      <div class="crit-label">🔍 Causa Raiz (Hipótese)</div>
-      <div class="crit-value">{causa}</div>
-    </div>
-    <div>
-      <div class="crit-label">✅ Plano de Ação</div>
-      <div class="crit-value">{plano}</div>
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-            st.markdown("")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.session_state.gov_data[k]["impacto"] = st.text_area(
+                "📌 Impacto no Negócio",
+                value=st.session_state.gov_data[k]["impacto"],
+                height=130,
+                placeholder="Descreva o impacto no negócio...",
+                key=f"impacto_{k}",
+            )
+        with c2:
+            st.session_state.gov_data[k]["causa"] = st.text_area(
+                "🔍 Causa Raiz (Hipótese)",
+                value=st.session_state.gov_data[k]["causa"],
+                height=130,
+                placeholder="Descreva a causa raiz identificada...",
+                key=f"causa_{k}",
+            )
+        with c3:
+            st.session_state.gov_data[k]["plano"] = st.text_area(
+                "✅ Plano de Ação",
+                value=st.session_state.gov_data[k]["plano"],
+                height=130,
+                placeholder="Descreva as ações, responsáveis e prazo...",
+                key=f"plano_{k}",
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
