@@ -1114,8 +1114,9 @@ if(HOJE_MS>=MIN&&HOJE_MS<=MAX){{
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function isGolive(nome){{
-  var n=(nome||'').toLowerCase();
-  return n.includes('go-live')||n.includes('golive')||n.includes('go live');
+  // Detecta qualquer variação contendo as letras g-o-l-i-v-e em sequência
+  var n=(nome||'').toLowerCase().replace(/[^a-z]/g,'');
+  return n.includes('golive');
 }}
 
 function fmtDate(ms){{
