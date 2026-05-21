@@ -1000,7 +1000,7 @@ function openModalMarco(m, p){{
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ──────────────────────────────────────────────────────────────────────────────
-# 11. SECTION 2 — GOVERNANÇA DE INCERTEZAS (uma linha por projeto, editável)
+# 11. SECTION 2 — GOVERNANÇA DE INCERTEZAS (linhas editáveis + adicionar)
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown(
     '<div class="section-title">Section 2 — Governança de Incertezas: '
@@ -1008,69 +1008,96 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Persistência dos campos editáveis
+# ── Persistência: dict proj_key -> lista de linhas [{titulo, impacto, causa, plano}]
 if 'gov_data' not in st.session_state:
     st.session_state.gov_data = {}
+if 'gov_del' not in st.session_state:
+    st.session_state.gov_del = {}   # controle de exclusão pendente
 
-# Uma linha por projeto
 projetos_gov = sorted(df_view['projeto'].unique().tolist())
 
 for proj in projetos_gov:
-    # IDP do projeto para badge de alerta
-    idp_val = idp_por_projeto_final.get(proj)
-    if idp_val and idp_val < 0.95:
-        alerta = "🔴"
-    elif idp_val and idp_val < 0.99:
-        alerta = "⚠️"
-    else:
-        alerta = "✅"
+    k = proj.replace(" ", "_").replace("/", "_")
 
+    # Inicializa com 1 linha vazia se não existir
+    if k not in st.session_state.gov_data:
+        st.session_state.gov_data[k] = [{"titulo": "", "impacto": "", "causa": "", "plano": ""}]
+
+    # Badge de alerta pelo IDP
+    idp_val = idp_por_projeto_final.get(proj)
+    alerta  = "🔴" if (idp_val and idp_val < 0.95) else ("⚠️" if (idp_val and idp_val < 0.99) else "✅")
     idp_txt = f"IDP {idp_val:.2f}" if idp_val else "IDP N/A"
-    label_exp = f"{alerta} {proj} · {idp_txt}"
+    n_linhas = len(st.session_state.gov_data[k])
+    label_exp = f"{alerta} {proj} · {idp_txt} · {n_linhas} ponto(s)"
 
     with st.expander(label_exp, expanded=False):
-        # Chave única por projeto
-        k = proj.replace(" ", "_").replace("/", "_")
 
-        if k not in st.session_state.gov_data:
-            st.session_state.gov_data[k] = {
-                "impacto": "",
-                "causa":   "",
-                "plano":   "",
-            }
+        linhas = st.session_state.gov_data[k]
+        to_delete = []
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.session_state.gov_data[k]["impacto"] = st.text_area(
-                "📌 Impacto no Negócio",
-                value=st.session_state.gov_data[k]["impacto"],
-                height=130,
-                placeholder="Descreva o impacto no negócio...",
-                key=f"impacto_{k}",
+        for idx, linha in enumerate(linhas):
+            # Separador visual entre linhas
+            if idx > 0:
+                st.markdown("<hr style='border:1px dashed #E2E8F0;margin:10px 0'>", unsafe_allow_html=True)
+
+            # Título da linha + botão excluir
+            col_titulo, col_del = st.columns([9, 1])
+            with col_titulo:
+                linhas[idx]["titulo"] = st.text_input(
+                    f"Ponto crítico {idx + 1}" if not linha["titulo"] else "",
+                    value=linhas[idx]["titulo"],
+                    placeholder=f"Nome do ponto crítico {idx + 1}...",
+                    key=f"titulo_{k}_{idx}",
+                    label_visibility="collapsed",
+                )
+            with col_del:
+                if st.button("🗑️", key=f"del_{k}_{idx}", help="Remover esta linha"):
+                    to_delete.append(idx)
+
+            # 3 campos de conteúdo
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                linhas[idx]["impacto"] = st.text_area(
+                    "📌 Impacto no Negócio",
+                    value=linhas[idx]["impacto"],
+                    height=120,
+                    placeholder="Descreva o impacto no negócio...",
+                    key=f"impacto_{k}_{idx}",
+                )
+            with c2:
+                linhas[idx]["causa"] = st.text_area(
+                    "🔍 Causa Raiz (Hipótese)",
+                    value=linhas[idx]["causa"],
+                    height=120,
+                    placeholder="Descreva a causa raiz identificada...",
+                    key=f"causa_{k}_{idx}",
+                )
+            with c3:
+                linhas[idx]["plano"] = st.text_area(
+                    "✅ Plano de Ação",
+                    value=linhas[idx]["plano"],
+                    height=120,
+                    placeholder="Ações, responsáveis e prazo...",
+                    key=f"plano_{k}_{idx}",
+                )
+
+        # Aplica exclusões (de trás para frente para não deslocar índices)
+        for idx in sorted(to_delete, reverse=True):
+            if len(linhas) > 1:   # mantém pelo menos 1 linha
+                linhas.pop(idx)
+        st.session_state.gov_data[k] = linhas
+
+        # Botão adicionar nova linha
+        st.markdown("")
+        if st.button(f"➕ Adicionar ponto crítico", key=f"add_{k}"):
+            st.session_state.gov_data[k].append(
+                {"titulo": "", "impacto": "", "causa": "", "plano": ""}
             )
-        with c2:
-            st.session_state.gov_data[k]["causa"] = st.text_area(
-                "🔍 Causa Raiz (Hipótese)",
-                value=st.session_state.gov_data[k]["causa"],
-                height=130,
-                placeholder="Descreva a causa raiz identificada...",
-                key=f"causa_{k}",
-            )
-        with c3:
-            st.session_state.gov_data[k]["plano"] = st.text_area(
-                "✅ Plano de Ação",
-                value=st.session_state.gov_data[k]["plano"],
-                height=130,
-                placeholder="Descreva as ações, responsáveis e prazo...",
-                key=f"plano_{k}",
-            )
+            st.rerun()
 
-
-# ──────────────────────────────────────────────────────────────────────────────
 # 12. EXPORTAR RELATÓRIO
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">Exportar Relatório Executivo</div>', unsafe_allow_html=True)
 
 def gerar_excel(df_base, df_crits):
     output = io.BytesIO()
