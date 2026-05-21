@@ -481,10 +481,17 @@ for proj in sorted(df_view['projeto'].unique()):
 
     r0      = l1.iloc[0]
     idp_val = idp_por_projeto_final.get(proj)
-    if idp_val and idp_val >= 0.99:   bar_cor = "#22C55E"
-    elif idp_val and idp_val >= 0.95: bar_cor = "#D97706"
-    elif idp_val:                      bar_cor = "#E05252"
-    else:                              bar_cor = "#4A6FA5"
+
+    # Cor da barra por etapa PMBOK detectada pelo % de conclusão
+    pct_proj = float(r0['pct'])
+    if pct_proj == 0:
+        bar_cor = "#6366F1"   # Iniciação
+    elif pct_proj < 20:
+        bar_cor = "#3B82F6"   # Planejamento
+    elif pct_proj < 85:
+        bar_cor = "#F59E0B"   # Execução e Controle
+    else:
+        bar_cor = "#22C55E"   # Encerramento
 
     # Marcos deste projeto: tarefas com is_milestone=True OU nível<=2 com datas
     # Prioriza milestones reais; se não houver, usa as subfases L2 como marcos visuais
@@ -614,16 +621,21 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
   white-space:nowrap;padding:0 8px;letter-spacing:.02em;
 }}
 
-/* MARCO */
-.marco{{
+/* MARCO WRAPPER */
+.marco-wrap{{
   position:absolute;
-  width:16px;height:16px;
-  transform:rotate(45deg) translate(-50%,-50%);
+  display:flex;flex-direction:column;align-items:center;
   cursor:pointer;z-index:15;
-  transition:transform .15s,filter .15s;
-  border-radius:2px;
+  transform:translateX(-50%);
 }}
-.marco:hover{{transform:rotate(45deg) translate(-50%,-50%) scale(1.6);filter:brightness(1.4);}}
+/* MARCO DIAMANTE */
+.marco{{
+  width:14px;height:14px;
+  transform:rotate(45deg);
+  transition:transform .15s,filter .15s;
+  border-radius:2px;flex-shrink:0;
+}}
+.marco-wrap:hover .marco{{transform:rotate(45deg) scale(1.6);filter:brightness(1.4);}}
 .marco.done{{background:#22C55E;box-shadow:0 0 8px #22C55E88;}}
 .marco.ok  {{background:#3B82F6;box-shadow:0 0 6px #3B82F666;}}
 .marco.late{{
@@ -631,6 +643,18 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
   animation:pulse 1.4s ease-in-out infinite;
 }}
 @keyframes pulse{{0%,100%{{box-shadow:0 0 8px #EF444499;}}50%{{box-shadow:0 0 20px #EF4444CC;}}}}
+/* MARCO LABEL */
+.marco-lbl{{
+  margin-top:6px;
+  font-size:8px;font-weight:600;color:#94A3B8;
+  white-space:nowrap;
+  writing-mode:vertical-rl;
+  transform:rotate(180deg);
+  max-height:60px;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.2;letter-spacing:.02em;
+  text-align:center;
+}}
+.marco-wrap:hover .marco-lbl{{color:#CBD5E1;}}
 
 /* MODAL */
 #modal-overlay{{
@@ -693,14 +717,14 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
   <div id="header-row"></div>
   <div id="body"></div>
   <div id="legend">
-    <div class="leg"><div class="leg-d" style="background:#22C55E"></div>Marco Concluído</div>
+    <div class="leg"><div class="leg-b" style="background:#6366F1"></div>Iniciação (0%)</div>
+    <div class="leg"><div class="leg-b" style="background:#3B82F6"></div>Planejamento (&lt;20%)</div>
+    <div class="leg"><div class="leg-b" style="background:#F59E0B"></div>Execução e Controle (20–84%)</div>
+    <div class="leg"><div class="leg-b" style="background:#22C55E"></div>Encerramento (≥85%)</div>
+    <div class="leg" style="margin-left:12px;"><div class="leg-d" style="background:#22C55E"></div>Marco Concluído</div>
     <div class="leg"><div class="leg-d" style="background:#3B82F6"></div>Marco no Prazo</div>
     <div class="leg"><div class="leg-d" style="background:#EF4444"></div>Marco Atrasado</div>
-    <div class="leg"><div class="leg-b" style="background:#22C55E"></div>IDP ≥ 0,99</div>
-    <div class="leg"><div class="leg-b" style="background:#D97706"></div>IDP ≥ 0,95</div>
-    <div class="leg"><div class="leg-b" style="background:#E05252"></div>IDP &lt; 0,95</div>
-    <div class="leg"><div class="leg-b" style="background:#4A6FA5"></div>IDP N/A</div>
-    <div class="leg" style="color:#63B3ED;border-left:2px solid #63B3ED;padding-left:5px;">Linha Hoje</div>
+    <div class="leg" style="color:#63B3ED;border-left:2px solid #63B3ED;padding-left:5px;margin-left:12px;">Linha Hoje</div>
   </div>
 </div>
 
@@ -853,17 +877,30 @@ PROJECTS.forEach((p,i)=>{{
     }}
   }}
 
-  // MARCOS sobre a barra
+  // MARCOS sobre a barra com label abaixo
   p.marcos.forEach(m=>{{
     if(m.termino==null) return;
     const xp=d2p(m.termino);
     if(xp<0||xp>100) return;
+
+    const wrap=document.createElement('div');
+    wrap.className='marco-wrap';
+    wrap.style.left=`${{xp}}%`;
+    wrap.style.top='20px';
+
     const mk=document.createElement('div');
     mk.className='marco '+(m.concluido?'done':m.atrasado?'late':'ok');
-    mk.style.left=`${{xp}}%`; mk.style.top='32px';
-    mk.addEventListener('click', e=>{{ e.stopPropagation(); openModalMarco(m, p); }});
-    mk.title=m.nome;
-    tla.appendChild(mk);
+    wrap.appendChild(mk);
+
+    const lbl=document.createElement('div');
+    lbl.className='marco-lbl';
+    // Truncate to ~18 chars for vertical label
+    lbl.textContent=m.nome.length>18?m.nome.slice(0,18)+'…':m.nome;
+    wrap.appendChild(lbl);
+
+    wrap.addEventListener('click', e=>{{ e.stopPropagation(); openModalMarco(m, p); }});
+    wrap.title=m.nome;
+    tla.appendChild(wrap);
   }});
 
   row.appendChild(tla);
