@@ -290,9 +290,8 @@ with st.sidebar:
     st.markdown('---')
 
     # ── Edição de IDPs por projeto ────────────────────────────────────────────
-    if not st.session_state.get('modo_apresentacao', False):
-        st.markdown('### ✏️ Editar IDPs por Projeto')
-        st.caption('Altere os valores abaixo para recalcular os KPIs.')
+    st.markdown('### ✏️ Editar IDPs por Projeto')
+    st.caption('Altere os valores abaixo para recalcular os KPIs.')
     if 'idp_override' not in st.session_state:
         st.session_state.idp_override = {}
     _sb_idp_override = {}
@@ -343,32 +342,48 @@ else:
 if 'modo_apresentacao' not in st.session_state:
     st.session_state.modo_apresentacao = False
 
-col_titulo, col_btn_apres = st.columns([8, 1])
-with col_titulo:
-    st.markdown(
-        f"<h1 style='color:#1B2A4A;font-size:24px;font-weight:700;margin-bottom:2px'>"
-        f"Dashboard Executivo - Digital</h1>"
-        f"<p style='color:#9AA5BE;font-size:12px'>PMBOK 8ª Ed. · Referência: "
-        f"{data_ref.strftime('%d/%m/%Y')} · {len(projetos_disp)} projeto(s) carregado(s)</p>",
-        unsafe_allow_html=True,
-    )
-with col_btn_apres:
-    st.markdown("<div style='margin-top:10px'>", unsafe_allow_html=True)
-    if st.session_state.modo_apresentacao:
-        if st.button("⚙️ Modo Edição", use_container_width=True):
-            st.session_state.modo_apresentacao = False
-            st.rerun()
-    else:
-        if st.button("🎯 Apresentar", use_container_width=True, type="primary"):
-            st.session_state.modo_apresentacao = True
-            # Fecha todos os modos de edição da Section C
-            for _k in list(st.session_state.keys()):
-                if _k.startswith("edit_mode_"):
-                    st.session_state[_k] = False
-            st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+st.markdown(
+    f"<h1 style='color:#1B2A4A;font-size:24px;font-weight:700;margin-bottom:2px'>"
+    f"Dashboard Executivo - Digital</h1>"
+    f"<p style='color:#9AA5BE;font-size:12px'>PMBOK 8ª Ed. · Referência: "
+    f"{data_ref.strftime('%d/%m/%Y')} · {len(projetos_disp)} projeto(s) carregado(s)</p>",
+    unsafe_allow_html=True,
+)
 
 _apresentando = st.session_state.modo_apresentacao
+
+# JS: colapsa sidebar no modo apresentação, expande no modo edição
+_collapsed = 'true' if _apresentando else 'false'
+st.components.v1.html(f"""
+<script>
+(function(){{
+  var collapsed = {_collapsed};
+  var tries = 0;
+  var t = setInterval(function(){{
+    tries++;
+    if(tries > 30){{ clearInterval(t); return; }}
+    var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+    if(!sidebar) return;
+    var isOpen = sidebar.getAttribute('aria-expanded') !== 'false' && 
+                 window.parent.document.querySelector('[data-testid="stSidebarCollapsedControl"]') === null;
+    if(collapsed && isOpen){{
+      var btn = window.parent.document.querySelector(
+        'section[data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"] > div > svg'
+      );
+      if(!btn) btn = window.parent.document.querySelector(
+        '[data-testid="stSidebarCollapseButton"]'
+      );
+      if(btn){{ btn.closest('button').click(); clearInterval(t); }}
+    }} else if(!collapsed && !isOpen){{
+      var openBtn = window.parent.document.querySelector('[data-testid="stSidebarCollapsedControl"] button');
+      if(openBtn){{ openBtn.click(); clearInterval(t); }}
+    }} else {{
+      clearInterval(t);
+    }}
+  }}, 150);
+}})();
+</script>
+""", height=0)
 
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
 
@@ -1819,8 +1834,24 @@ with _sb_export_placeholder.container():
         )
 
 
-st.markdown(
-    f"<p style='text-align:center;color:#C0C8D8;font-size:10px;margin-top:30px'>"
-    f"Dashboard Executivo · PMBOK® 8ª Edição · PMI · Gerado em {date.today().strftime('%d/%m/%Y')}"
-    f"</p>", unsafe_allow_html=True,
-)
+# ── Botão Apresentar / Modo Edição no rodapé ─────────────────────────────────
+st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
+_col_foot_l, _col_foot_r = st.columns([6, 1])
+with _col_foot_l:
+    st.markdown(
+        f"<p style='color:#C0C8D8;font-size:10px;margin-top:8px'>"
+        f"Dashboard Executivo · PMBOK® 8ª Edição · PMI · Gerado em {date.today().strftime('%d/%m/%Y')}"
+        f"</p>", unsafe_allow_html=True,
+    )
+with _col_foot_r:
+    if st.session_state.modo_apresentacao:
+        if st.button("⚙️ Modo Edição", use_container_width=True, key="btn_apres_footer"):
+            st.session_state.modo_apresentacao = False
+            st.rerun()
+    else:
+        if st.button("🎯 Apresentar", use_container_width=True, type="primary", key="btn_apres_footer"):
+            st.session_state.modo_apresentacao = True
+            for _k in list(st.session_state.keys()):
+                if _k.startswith("edit_mode_"):
+                    st.session_state[_k] = False
+            st.rerun()
