@@ -674,7 +674,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
   transition:transform .15s,filter .15s;
   border-radius:2px;flex-shrink:0;
 }}
-.marco-wrap:hover .marco{{transform:rotate(45deg) scale(1.5);filter:brightness(1.4);}}
+.marco-wrap:hover .marco{{transform:rotate(45deg) scale(1.5);filter:brightness(1.5);}}
 .marco.done{{background:#22C55E;box-shadow:0 0 8px #22C55E88;}}
 .marco.ok  {{background:#3B82F6;box-shadow:0 0 6px #3B82F666;}}
 .marco.late{{
@@ -682,19 +682,65 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
   animation:pulse 1.4s ease-in-out infinite;
 }}
 @keyframes pulse{{0%,100%{{box-shadow:0 0 8px #EF444499;}}50%{{box-shadow:0 0 20px #EF4444CC;}}}}
-/* MARCO LABEL — horizontal, abaixo da barra */
+/* CONECTOR vertical diamante → label */
+.marco-stem{{
+  width:1px;height:14px;
+  background:rgba(148,163,184,.35);
+  flex-shrink:0;
+}}
+/* MARCO LABEL — horizontal, bem abaixo da barra */
 .marco-lbl{{
-  margin-top:5px;
-  font-size:7.5px;font-weight:600;color:#94A3B8;
+  margin-top:0;
+  font-size:8px;font-weight:600;color:#64748B;
   white-space:nowrap;
   writing-mode:horizontal-tb;
   transform:none;
-  max-width:90px;
+  max-width:88px;
   overflow:hidden;text-overflow:ellipsis;
   line-height:1.3;letter-spacing:.01em;
   text-align:center;
+  padding:2px 4px;
+  border-radius:3px;
+  background:rgba(15,22,35,.7);
+  border:1px solid rgba(100,116,139,.18);
 }}
-.marco-wrap:hover .marco-lbl{{color:#E2E8F0;}}
+.marco-wrap:hover .marco-lbl{{
+  color:#E2E8F0;
+  border-color:rgba(148,163,184,.5);
+  background:rgba(30,41,59,.95);
+}}
+
+/* HOVER TOOLTIP DO MARCO */
+.marco-tooltip{{
+  display:none;
+  position:absolute;
+  bottom:calc(100% + 10px);
+  left:50%;transform:translateX(-50%);
+  background:#1E293B;
+  border:1px solid #334155;
+  border-radius:10px;
+  padding:12px 16px;
+  min-width:200px;
+  box-shadow:0 12px 40px rgba(0,0,0,.7);
+  font-size:11px;line-height:1.7;color:#E2E8F0;
+  pointer-events:none;
+  z-index:200;
+  white-space:normal;
+}}
+.marco-tooltip::after{{
+  content:'';
+  position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:6px solid transparent;
+  border-top-color:#334155;
+}}
+.marco-wrap:hover .marco-tooltip{{display:block;}}
+.mt-title{{font-size:12px;font-weight:700;color:#E2E8F0;margin-bottom:8px;
+           border-bottom:1px solid #334155;padding-bottom:6px;}}
+.mt-row{{display:flex;justify-content:space-between;gap:16px;margin-bottom:3px;}}
+.mt-label{{color:#64748B;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}}
+.mt-val{{color:#CBD5E1;font-weight:600;text-align:right;}}
+.mt-badge{{display:inline-block;padding:2px 8px;border-radius:10px;
+           font-size:10px;font-weight:700;margin-top:6px;}}
 
 /* MODAL */
 #modal-overlay{{
@@ -926,23 +972,50 @@ PROJECTS.forEach((p,i)=>{{
     const wrap=document.createElement('div');
     wrap.className='marco-wrap';
     wrap.style.left=`${{xp}}%`;
-    // Posiciona o diamante no centro vertical da barra (top=16px, h=32px → centro=32px)
-    // O wrap começa no topo do diamante; label fica naturalmente abaixo
-    wrap.style.top='24px';
+    // Diamante centrado na barra (barra: top=16px h=32px → centro=32px)
+    wrap.style.top='26px';
 
+    // Diamante
     const mk=document.createElement('div');
     mk.className='marco '+(m.concluido?'done':m.atrasado?'late':'ok');
     wrap.appendChild(mk);
 
+    // Conector vertical
+    const stem=document.createElement('div');
+    stem.className='marco-stem';
+    wrap.appendChild(stem);
+
+    // Label horizontal abaixo
     const lbl=document.createElement('div');
     lbl.className='marco-lbl';
-    // Full name — CSS truncates with ellipsis at max-width:90px
     lbl.textContent=m.nome;
-    lbl.title=m.nome;
     wrap.appendChild(lbl);
 
+    // Tooltip rico no hover
+    const mc2=m.concluido?'#22C55E':m.atrasado?'#EF4444':'#3B82F6';
+    const ms2=m.concluido?'✅ Concluído':m.atrasado?'🔴 Atrasado':'🔵 No prazo';
+    const badgeBg=m.concluido?'rgba(34,197,94,.15)':m.atrasado?'rgba(239,68,68,.15)':'rgba(59,130,246,.15)';
+    const tip=document.createElement('div');
+    tip.className='marco-tooltip';
+    tip.innerHTML=`
+      <div class="mt-title">♦ ${{m.nome}}</div>
+      <div class="mt-row">
+        <span class="mt-label">Data</span>
+        <span class="mt-val">${{fmtDate(m.termino)}}</span>
+      </div>
+      <div class="mt-row">
+        <span class="mt-label">% Concluído</span>
+        <span class="mt-val">${{m.pct.toFixed(0)}}%</span>
+      </div>
+      ${{m.baseline?`<div class="mt-row">
+        <span class="mt-label">Baseline</span>
+        <span class="mt-val">${{fmtDate(m.baseline)}}</span>
+      </div>`:''}}<div>
+        <span class="mt-badge" style="background:${{badgeBg}};color:${{mc2}}">${{ms2}}</span>
+      </div>`;
+    wrap.appendChild(tip);
+
     wrap.addEventListener('click', e=>{{ e.stopPropagation(); openModalMarco(m, p); }});
-    wrap.title=m.nome;
     tla.appendChild(wrap);
   }});
 
