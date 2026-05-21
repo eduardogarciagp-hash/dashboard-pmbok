@@ -117,28 +117,40 @@ MESES_PT = {
     "novembro":"11","dezembro":"12",
 }
 
+MESES_PT = {
+    "janeiro":"01","fevereiro":"02","março":"03","marco":"03",
+    "abril":"04","maio":"05","junho":"06","julho":"07",
+    "agosto":"08","setembro":"09","outubro":"10",
+    "novembro":"11","dezembro":"12",
+}
+
 def parse_data(valor) -> pd.Timestamp:
     if pd.isna(valor) or str(valor).strip() in ("","nan","None","NaT"):
         return pd.NaT
-    # Já é datetime
-    if isinstance(valor, (pd.Timestamp, pd.datetime if hasattr(pd,"datetime") else type(None))):
-        return pd.Timestamp(valor)
+    # Já é datetime nativo
+    try:
+        if isinstance(valor, (pd.Timestamp,)):
+            return valor
+        ts = pd.Timestamp(valor)
+        if ts is not pd.NaT:
+            return ts
+    except Exception:
+        pass
     # Serial numérico do Excel (ex: 46078)
     try:
-        n = float(valor)
+        n = float(str(valor).strip())
         if 30000 < n < 80000:
             return pd.Timestamp("1899-12-30") + timedelta(days=int(n))
     except (ValueError, TypeError):
         pass
-    # String — tenta PT-BR por extenso
+    # String PT-BR: "22 Dezembro 2025 08:00"
     s = str(valor).strip().lower()
     for nome, num in MESES_PT.items():
         s = s.replace(nome, num)
     partes = s.split()
     if len(partes) >= 3:
-        s_data = " ".join(partes[:3])
         try:
-            return pd.Timestamp(s_data, dayfirst=True)
+            return pd.Timestamp(" ".join(partes[:3]), dayfirst=True)
         except Exception:
             pass
     # Fallback genérico
@@ -153,8 +165,9 @@ def parse_serie(serie: pd.Series) -> pd.Series:
 # ──────────────────────────────────────────────────────────────────────────────
 def normalizar_arquivo(arquivo) -> pd.DataFrame:
     conteudo = arquivo.read()
+
+    # Tenta ler preservando datas nativas do Excel
     try:
-        # Lê sem forçar dtype — preserva datetime do Excel automaticamente
         df = pd.read_excel(io.BytesIO(conteudo))
     except Exception as e:
         st.error(f"❌ Erro ao ler '{arquivo.name}': {e}")
@@ -163,7 +176,7 @@ def normalizar_arquivo(arquivo) -> pd.DataFrame:
     df.columns = df.columns.str.strip()
     df.dropna(how="all", inplace=True)
 
-    # Amostra bruta ANTES do mapeamento
+    # Amostra bruta para diagnóstico
     amostra = {c: str(df[c].dropna().iloc[0]) if df[c].notna().any() else "vazio"
                for c in df.columns}
 
@@ -171,11 +184,11 @@ def normalizar_arquivo(arquivo) -> pd.DataFrame:
         st.code("\n".join([f"{i+1:02d}. {c}  →  {amostra[c]}"
                            for i, c in enumerate(df.columns)]))
 
-    # Mapeamento
+    # Mapeamento de colunas
     df.rename(columns={k: v for k, v in MAPA_COLUNAS.items() if k in df.columns},
               inplace=True)
 
-    # Parse de datas — aceita datetime nativo, serial ou string PT-BR
+    # Parse de datas — aceita datetime nativo, serial numérico e string PT-BR
     for col in ["Inicio", "Termino"]:
         if col in df.columns:
             df[col] = parse_serie(df[col])
@@ -184,15 +197,33 @@ def normalizar_arquivo(arquivo) -> pd.DataFrame:
 
     linhas_ok = df["Inicio"].notna() & df["Termino"].notna()
 
+    # Se falhou, tenta reler como dtype=str para pegar strings PT-BR
+    if linhas_ok.sum() == 0:
+        try:
+            df2 = pd.read_excel(io.BytesIO(conteudo), dtype=str)
+            df2.columns = df2.columns.str.strip()
+            df2.dropna(how="all", inplace=True)
+            df2.rename(columns={k: v for k, v in MAPA_COLUNAS.items() if k in df2.columns},
+                       inplace=True)
+            for col in ["Inicio", "Termino"]:
+                if col in df2.columns:
+                    df2[col] = parse_serie(df2[col])
+                else:
+                    df2[col] = pd.NaT
+            linhas_ok2 = df2["Inicio"].notna() & df2["Termino"].notna()
+            if linhas_ok2.sum() > 0:
+                df       = df2
+                linhas_ok = linhas_ok2
+        except Exception:
+            pass
+
     if linhas_ok.sum() == 0:
         st.error(
             f"❌ **'{arquivo.name}'**: datas não reconhecidas.\n\n"
-            "**Como corrigir:**\n"
-            "1. Abra o arquivo no Excel\n"
-            "2. Selecione as colunas **Início** e **Término**\n"
-            "3. Copie tudo para um **Excel novo** (Colar Especial → Valores)\n"
-            "4. Formate as colunas de data como **dd/mm/aaaa**\n"
-            "5. Salve e reimporte"
+            "Valores encontrados nas colunas de data:\n"
+            f"- Início: `{amostra.get('Inicio', amostra.get('Início','não encontrada'))}`\n"
+            f"- Término: `{amostra.get('Termino', amostra.get('Término','não encontrada'))}`\n\n"
+            "Formatos aceitos: `22 Dezembro 2025`, `22/12/2025`, `2025-12-22` ou data nativa do Excel."
         )
         return pd.DataFrame()
 
