@@ -491,48 +491,56 @@ else:
     projetos_com_crits = df_criticos['projeto'].unique().tolist()
 
     for proj in projetos_com_crits:
-        css_cls = PROJ_CSS.get(proj, "proj-header-bdf")
-        st.markdown(f'<div class="{css_cls}">📌 {proj}</div>', unsafe_allow_html=True)
-
         df_proj_crit = df_criticos[df_criticos['projeto'] == proj].copy()
         df_proj_crit = df_proj_crit.sort_values(['nivel', 'spi_num'])
+        n_crits = len(df_proj_crit['nome'].unique())
+        spi_min = df_proj_crit['spi_num'].min()
+        alerta_proj = "🔴" if spi_min < 0.80 else "⚠️"
 
-        # ── IA ou estático ──────────────────────────────────────────────────
-        items_ia = []
-        if usar_ia:
-            with st.spinner(f"🤖 Gerando insights para {proj}..."):
-                crit_payload = df_proj_crit[
-                    ['nome', 'nivel', 'spi_num', 'pct', 'status', 'resp',
-                     'termino', 'baseline_termino']
-                ].rename(columns={'spi_num': 'spi', 'termino': 'fim_atual',
-                                   'baseline_termino': 'baseline'}).to_dict('records')
-                result = gerar_insights_ia(proj, json.dumps(crit_payload, default=str))
-                if result['status'] == 'ok':
-                    items_ia = result['items']
+        label_expander = (
+            f"{alerta_proj} {proj} "
+            f"— {n_crits} ponto(s) crítico(s) "
+            f"· SPI mín: {spi_min:.2f}"
+        )
 
-        ia_map = {it.get('nome', '').strip(): it for it in items_ia}
+        with st.expander(label_expander, expanded=False):
 
-        # ── Renderiza cards ─────────────────────────────────────────────────
-        seen = set()
-        for _, row in df_proj_crit.iterrows():
-            key = row['nome'].strip()
-            if key in seen:
-                continue
-            seen.add(key)
+            # ── IA ou estático ──────────────────────────────────────────
+            items_ia = []
+            if usar_ia:
+                with st.spinner(f"🤖 Gerando insights para {proj}..."):
+                    crit_payload = df_proj_crit[
+                        ['nome', 'nivel', 'spi_num', 'pct', 'status', 'resp',
+                         'termino', 'baseline_termino']
+                    ].rename(columns={'spi_num': 'spi', 'termino': 'fim_atual',
+                                       'baseline_termino': 'baseline'}).to_dict('records')
+                    result = gerar_insights_ia(proj, json.dumps(crit_payload, default=str))
+                    if result['status'] == 'ok':
+                        items_ia = result['items']
 
-            spi_v     = row['spi_num']
-            row_class = "crit-row-red" if spi_v < 0.80 else "crit-row-yellow"
-            spi_badge = badge(spi_v)
+            ia_map = {it.get('nome', '').strip(): it for it in items_ia}
 
-            ia_item = ia_map.get(key, {})
-            impacto  = ia_item.get('impacto',  '— Análise IA não disponível; revise manualmente.')
-            causa    = ia_item.get('causa_raiz','— Identificar gargalo com o responsável.')
-            plano    = ia_item.get('plano_acao','— Agendar revisão semanal com owner.')
+            # ── Renderiza cards ─────────────────────────────────────────
+            seen = set()
+            for _, row in df_proj_crit.iterrows():
+                key = row['nome'].strip()
+                if key in seen:
+                    continue
+                seen.add(key)
 
-            fim_str  = row['termino'].strftime('%d/%m/%Y') if pd.notna(row['termino']) else '-'
-            base_str = row['baseline_termino'].strftime('%d/%m/%Y') if pd.notna(row['baseline_termino']) else '-'
+                spi_v     = row['spi_num']
+                row_class = "crit-row-red" if spi_v < 0.80 else "crit-row-yellow"
+                spi_badge = badge(spi_v)
 
-            st.markdown(f"""
+                ia_item = ia_map.get(key, {})
+                impacto  = ia_item.get('impacto',  '— Análise IA não disponível; revise manualmente.')
+                causa    = ia_item.get('causa_raiz','— Identificar gargalo com o responsável.')
+                plano    = ia_item.get('plano_acao','— Agendar revisão semanal com owner.')
+
+                fim_str  = row['termino'].strftime('%d/%m/%Y') if pd.notna(row['termino']) else '-'
+                base_str = row['baseline_termino'].strftime('%d/%m/%Y') if pd.notna(row['baseline_termino']) else '-'
+
+                st.markdown(f"""
 <div class="{row_class}">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
     <span style="font-size:13px;font-weight:600;color:#1B2A4A;">
@@ -559,7 +567,7 @@ else:
 </div>
 """, unsafe_allow_html=True)
 
-        st.markdown("")
+            st.markdown("")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
