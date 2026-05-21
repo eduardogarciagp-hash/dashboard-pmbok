@@ -322,7 +322,7 @@ else:
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown(
     f"<h1 style='color:#1B2A4A;font-size:24px;font-weight:700;margin-bottom:2px'>"
-    f"Dashboard de Governança e Valor do Portfólio</h1>"
+    f"Dashboard Executivo - Digital</h1>"
     f"<p style='color:#9AA5BE;font-size:12px'>PMBOK 8ª Ed. · Referência: "
     f"{data_ref.strftime('%d/%m/%Y')} · {len(projetos_disp)} projeto(s) carregado(s)</p>",
     unsafe_allow_html=True,
@@ -344,13 +344,12 @@ df_root = df_view[
     (df_view['nivel'] == 1) &
     (~df_view['nome'].isin(['MS Project_Teste_Formulas_2', 'NOME DO PROJETO']))
 ]
-n_projetos  = df_view['projeto'].nunique()
-pct_media   = df_root['pct'].mean() if not df_root.empty else 0
-crits_count = df_view[(df_view['spi_num'] < spi_limiar) & df_view['spi_num'].notna()]['projeto'].nunique()
-marcos_tot  = df_view[df_view['is_milestone']].shape[0]
+n_projetos_calc  = df_view['projeto'].nunique()
+pct_media_calc   = df_root['pct'].mean() if not df_root.empty else 0
+crits_count_calc = df_view[(df_view['spi_num'] < spi_limiar) & df_view['spi_num'].notna()]['projeto'].nunique()
+marcos_tot_calc  = df_view[df_view['is_milestone']].shape[0]
 
 # IDP por projeto: pega a primeira linha L1 de cada projeto
-# IDP = Texto1(% concluido) / Número7(% planejado)  — ou Texto3 direto (Cockpit)
 _l1_rows = df_view[
     (df_view['nivel'] == 1) &
     (~df_view['nome'].isin(['MS Project_Teste_Formulas_2', 'NOME DO PROJETO']))
@@ -360,10 +359,58 @@ idp_por_projeto = {}
 for _, r in _l1_rows.iterrows():
     idp_por_projeto[r['projeto']] = round(r['spi_num'], 4) if pd.notna(r['spi_num']) else None
 
-# IDP médio do portfólio = média simples dos IDPs por projeto
 _vals = [v for v in idp_por_projeto.values() if v is not None]
-spi_medio = round(sum(_vals) / len(_vals), 4) if _vals else None
+spi_medio_calc = round(sum(_vals) / len(_vals), 4) if _vals else None
 
+# ── Modo edição ───────────────────────────────────────────────────────────────
+if 'kpi_edit' not in st.session_state:
+    st.session_state.kpi_edit = False
+if 'kpi_override' not in st.session_state:
+    st.session_state.kpi_override = {}
+
+col_title, col_btn = st.columns([8, 1])
+with col_btn:
+    if st.button("✏️ Editar" if not st.session_state.kpi_edit else "✅ Salvar", use_container_width=True):
+        st.session_state.kpi_edit = not st.session_state.kpi_edit
+
+if st.session_state.kpi_edit:
+    st.caption("Edite os valores abaixo e clique em ✅ Salvar para aplicar.")
+    ec1, ec2, ec3, ec4, ec5 = st.columns(5)
+    ov = st.session_state.kpi_override
+    with ec1:
+        ov['n_projetos']  = st.number_input("Projetos Ativos",    value=int(ov.get('n_projetos',  n_projetos_calc)),  step=1, min_value=0)
+    with ec2:
+        ov['pct_media']   = st.number_input("Conclusão Média (%)", value=float(ov.get('pct_media',  round(pct_media_calc,1))), step=0.1, format="%.1f")
+    with ec3:
+        ov['spi_medio']   = st.number_input("IDP Portfólio",       value=float(ov.get('spi_medio',  spi_medio_calc or 0.0)), step=0.01, format="%.2f")
+    with ec4:
+        ov['crits_count'] = st.number_input("Projetos Críticos",   value=int(ov.get('crits_count', crits_count_calc)), step=1, min_value=0)
+    with ec5:
+        ov['marcos_tot']  = st.number_input("Marcos no Portfólio", value=int(ov.get('marcos_tot',  marcos_tot_calc)),  step=1, min_value=0)
+
+    st.caption("IDP por projeto:")
+    idp_cols = st.columns(max(1, len(idp_por_projeto)))
+    for i, (proj, idp_calc) in enumerate(idp_por_projeto.items()):
+        with idp_cols[i]:
+            ov[f'idp_{proj}'] = st.number_input(
+                proj[:25], value=float(ov.get(f'idp_{proj}', idp_calc or 0.0)),
+                step=0.01, format="%.2f", key=f"idp_edit_{proj}"
+            )
+
+# ── Lê valores (override ou calculado) ───────────────────────────────────────
+ov = st.session_state.kpi_override
+n_projetos  = int(ov.get('n_projetos',  n_projetos_calc))
+pct_media   = float(ov.get('pct_media',  pct_media_calc))
+spi_medio   = float(ov.get('spi_medio',  spi_medio_calc or 0.0)) or None
+crits_count = int(ov.get('crits_count', crits_count_calc))
+marcos_tot  = int(ov.get('marcos_tot',  marcos_tot_calc))
+
+idp_por_projeto_final = {
+    proj: float(ov.get(f'idp_{proj}', idp_por_projeto.get(proj) or 0.0))
+    for proj in idp_por_projeto
+}
+
+# ── Renderiza KPI cards ───────────────────────────────────────────────────────
 c1, c2, c3, c4, c5 = st.columns(5)
 with c1: kpi_card("PROJETOS ATIVOS", str(n_projetos), "monitorados", "#2563EB")
 with c2: kpi_card("CONCLUSÃO MÉDIA", f"{pct_media:.1f}%", "do portfólio", "#059669")
@@ -375,9 +422,9 @@ with c4: kpi_card("PROJETOS CRÍTICOS", str(crits_count), f"com IDP < {spi_limia
 with c5: kpi_card("MARCOS NO PORTFÓLIO", str(marcos_tot), "identificados", "#7C3AED")
 
 # ── Linha de IDP por projeto com carinhas ────────────────────────────────────
-if idp_por_projeto:
-    cols_idp = st.columns(len(idp_por_projeto))
-    for i, (proj, idp_val) in enumerate(idp_por_projeto.items()):
+if idp_por_projeto_final:
+    cols_idp = st.columns(len(idp_por_projeto_final))
+    for i, (proj, idp_val) in enumerate(idp_por_projeto_final.items()):
         face, cor_face, label_face = idp_face(idp_val)
         idp_txt = f"{idp_val:.2f}" if idp_val is not None else "N/A"
         with cols_idp[i]:
