@@ -161,13 +161,51 @@ def normalizar_arquivo(arquivo) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = val
 
-    # Datas
-    df["Inicio"]  = pd.to_datetime(df.get("Inicio"),  errors="coerce")
-    df["Termino"] = pd.to_datetime(df.get("Termino"), errors="coerce")
-    df = df.dropna(subset=["Inicio","Termino"])
-    if df.empty:
-        st.warning(f"⚠️ '{arquivo.name}' não contém linhas com datas válidas de Início e Término.")
+    # ── Datas — busca inteligente se colunas não foram mapeadas ─────────────
+    def detectar_coluna_data(df_: pd.DataFrame, col_interna: str,
+                              candidatos_extras: list) -> pd.Series:
+        """
+        Tenta encontrar a coluna de data por:
+        1. Nome interno já mapeado
+        2. Lista de candidatos extras
+        3. Varredura automática: primeira coluna com >50% de valores datetime-like
+        """
+        # 1. Já existe pelo nome interno
+        if col_interna in df_.columns:
+            return pd.to_datetime(df_[col_interna], errors="coerce")
+
+        # 2. Candidatos extras não mapeados ainda presentes
+        for c in candidatos_extras:
+            if c in df_.columns:
+                return pd.to_datetime(df_[c], errors="coerce")
+
+        # 3. Varredura automática
+        for c in df_.columns:
+            serie = pd.to_datetime(df_[c], errors="coerce")
+            validos = serie.notna().sum()
+            if validos > len(df_) * 0.5:   # >50% de valores válidos como data
+                return serie
+
+        return pd.Series([pd.NaT] * len(df_))
+
+    df["Inicio"]  = detectar_coluna_data(df, "Inicio",
+                        ["Início","Start","Data Início","Data de Início",
+                         "data_inicio","inicio","DT_INICIO"])
+    df["Termino"] = detectar_coluna_data(df, "Termino",
+                        ["Término","Finish","Data Término","Data de Término",
+                         "data_termino","termino","DT_TERMINO"])
+
+    linhas_validas = df["Inicio"].notna() & df["Termino"].notna()
+    if linhas_validas.sum() == 0:
+        # Mostra diagnóstico detalhado para ajudar o usuário
+        with st.expander(f"❌ Diagnóstico de erro — '{arquivo.name}'", expanded=True):
+            st.error("Não foi possível detectar colunas de data. "
+                     "Veja as colunas encontradas abaixo e informe ao suporte.")
+            st.code("\n".join([f"{i+1:02d}. {c}  →  ex: {str(df[c].dropna().iloc[0]) if df[c].notna().any() else 'vazio'}"
+                               for i, c in enumerate(df.columns)]))
         return pd.DataFrame()
+
+    df = df[linhas_validas].copy()
 
     if "Termino_Baseline" not in df.columns:
         df["Termino_Baseline"] = df["Termino"]
