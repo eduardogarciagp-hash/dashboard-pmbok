@@ -470,16 +470,72 @@ for proj in sorted(df_view['projeto'].unique()):
     r0      = l1.iloc[0]
     idp_val = idp_por_projeto_final.get(proj)
 
-    # Cor da barra por etapa PMBOK detectada pelo % de conclusão
+    # ── Fase PMBOK 8ª Edição — 3 sinais combinados ─────────────────────────────
+    # Sinal 1: % real de conclusão (Texto1 ou PercentComplete)
     pct_proj = float(r0['pct'])
-    if pct_proj == 0:
-        bar_cor = "#6366F1"   # Iniciação
-    elif pct_proj < 20:
-        bar_cor = "#3B82F6"   # Planejamento
-    elif pct_proj < 85:
-        bar_cor = "#F59E0B"   # Execução e Controle
+
+    # Sinal 2: marcos concluídos deste projeto
+    marcos_def_temp = {
+        "Business Data Fabric": [
+            {"nome": "Kick-off Projeto",               "data": "2026-03-25", "pct": 100},
+            {"nome": "Assinatura Contrato MS Fabric",  "data": "2026-06-09", "pct": 0},
+            {"nome": "Assinatura Contrato Implantação","data": "2026-06-09", "pct": 0},
+            {"nome": "Ativação SKU / Go-Live Fabric",  "data": "2026-06-23", "pct": 0},
+            {"nome": "Publicação Política Governança", "data": "2026-04-30", "pct": 0},
+            {"nome": "Demanda Concluída – SAC GO-LIVE","data": "2026-07-02", "pct": 0},
+            {"nome": "Encerramento do Projeto",        "data": "2026-12-11", "pct": 0},
+        ],
+        "Cockpit Engenharia": [
+            {"nome": "Aprovação TAP",                  "data": "2026-05-22", "pct": 64},
+            {"nome": "Kick-off Fase 1",                "data": "2026-06-05", "pct": 100},
+            {"nome": "Assinatura Contrato Fase 2",     "data": "2026-08-14", "pct": 0},
+            {"nome": "GO-LIVE",                        "data": "2026-10-29", "pct": 0},
+        ],
+        "Esteira Analytics": [
+            {"nome": "Definição Entregas Q1",          "data": "2026-01-02", "pct": 100},
+            {"nome": "Assinatura Contrato Estratégia", "data": "2026-03-06", "pct": 100},
+            {"nome": "Go Live Estratégia de Dados",    "data": "2026-04-30", "pct": 100},
+            {"nome": "Go Live CEO Digital Boardroom",  "data": "2026-04-30", "pct": 100},
+            {"nome": "Conclusão Entregas Q1",          "data": "2026-05-27", "pct": 87},
+            {"nome": "Conclusão Entregas Q2",          "data": "2026-06-30", "pct": 0},
+            {"nome": "Conclusão Entregas Q3",          "data": "2026-09-30", "pct": 0},
+            {"nome": "Conclusão Entregas Q4",          "data": "2026-12-31", "pct": 0},
+        ],
+    }
+    _marcos_proj = marcos_def_temp.get(proj, [])
+    _kickoff_concluido    = any(m['pct'] >= 100 and 'kick' in m['nome'].lower() for m in _marcos_proj)
+    _assinatura_concluida = any(m['pct'] >= 100 and 'assinatura' in m['nome'].lower() for m in _marcos_proj)
+    _golive_concluido     = any(m['pct'] >= 100 and ('go-live' in m['nome'].lower() or 'go live' in m['nome'].lower() or 'golive' in m['nome'].lower()) for m in _marcos_proj)
+    _encerramento_concluido = any(m['pct'] >= 100 and 'encerramento' in m['nome'].lower() for m in _marcos_proj)
+
+    # Sinal 3: posição temporal (% do período decorrido)
+    _hoje = date.today()
+    _pct_tempo = 0.0
+    if pd.notna(r0['inicio']) and pd.notna(r0['termino']):
+        _total = (r0['termino'].date() - r0['inicio'].date()).days
+        _dec   = (_hoje - r0['inicio'].date()).days
+        _pct_tempo = round(_dec / _total * 100, 1) if _total > 0 else 0
+
+    # ── Decisão de fase (PMBOK 8ª Ed.) ───────────────────────────────────────
+    # ENCERRAMENTO: GO-LIVE ou encerramento concluído, OU %real >= 90
+    if _golive_concluido or _encerramento_concluido or pct_proj >= 90:
+        bar_cor   = "#22C55E"  # Verde esmeralda
+        fase_nome = "Encerramento"
+
+    # EXECUÇÃO E CONTROLE: kick-off concluído E trabalho em andamento (20-89%)
+    elif _kickoff_concluido and 20 <= pct_proj < 90:
+        bar_cor   = "#F59E0B"  # Âmbar
+        fase_nome = "Execução e Controle"
+
+    # PLANEJAMENTO: kick-off concluído mas trabalho < 20%, OU contratos em negociação
+    elif _kickoff_concluido or _assinatura_concluida or (5 <= pct_proj < 20):
+        bar_cor   = "#3B82F6"  # Azul
+        fase_nome = "Planejamento"
+
+    # INICIAÇÃO: nenhum marco concluído e % < 5
     else:
-        bar_cor = "#22C55E"   # Encerramento
+        bar_cor   = "#6366F1"  # Índigo
+        fase_nome = "Iniciação" 
 
     # ── Marcos curados por análise PMO PMBOK 8ª Edição ──────────────────────────
     # Marcos definidos com critério técnico: eventos significativos que representam
@@ -584,6 +640,7 @@ for proj in sorted(df_view['projeto'].unique()):
         "pct":      float(r0['pct']),
         "idp":      idp_val,
         "cor":      bar_cor,
+        "fase":     fase_nome,
         "marcos":   marcos,
         "subfases": subfases,
     })
@@ -888,10 +945,10 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
   <div id="header-row"></div>
   <div id="body"></div>
   <div id="legend">
-    <div class="leg"><div class="leg-b" style="background:#6366F1"></div>Iniciação (0%)</div>
-    <div class="leg"><div class="leg-b" style="background:#3B82F6"></div>Planejamento (&lt;20%)</div>
-    <div class="leg"><div class="leg-b" style="background:#F59E0B"></div>Execução e Controle (20–84%)</div>
-    <div class="leg"><div class="leg-b" style="background:#22C55E"></div>Encerramento (≥85%)</div>
+    <div class="leg"><div class="leg-b" style="background:#6366F1"></div>Iniciação</div>
+    <div class="leg"><div class="leg-b" style="background:#3B82F6"></div>Planejamento</div>
+    <div class="leg"><div class="leg-b" style="background:#F59E0B"></div>Execução e Controle</div>
+    <div class="leg"><div class="leg-b" style="background:#22C55E"></div>Encerramento</div>
     <div class="leg" style="margin-left:12px;"><div class="leg-d" style="background:#22C55E"></div>Marco Concluído</div>
     <div class="leg"><div class="leg-d" style="background:#3B82F6"></div>Marco no Prazo</div>
     <div class="leg"><div class="leg-d" style="background:#EF4444"></div>Marco Atrasado</div>
@@ -1081,7 +1138,7 @@ PROJECTS.forEach((p,i)=>{{
 
       const bt=document.createElement('div');
       bt.className='bar-txt';
-      bt.textContent=p.pct.toFixed(0)+'% concluído';
+      bt.textContent=(p.fase?p.fase+' · ':'')+p.pct.toFixed(0)+'% concluído';
       bar.appendChild(bt);
 
       bar.addEventListener('click', ()=>openModal(p));
