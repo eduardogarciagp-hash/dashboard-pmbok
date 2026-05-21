@@ -590,102 +590,30 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 10. SECTION 2 — EVM
+# 10. SECTION 2 — GOVERNANÇA DE INCERTEZAS
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-box">', unsafe_allow_html=True)
-st.markdown('<div class="section-header">📊 SECTION 2 — ANÁLISE DE VALOR AGREGADO (EVM) POR PROJETO</div>',
-            unsafe_allow_html=True)
+st.markdown(
+    '<div class="section-header">⚠️ SECTION 2 — GOVERNANÇA DE INCERTEZAS: PONTOS CRÍTICOS E PLANOS DE AÇÃO'
+    '<span style="font-weight:400;font-size:10px;color:#B0BAD0;margin-left:12px">'
+    '💡 Exibe apenas projetos com SPI &lt; 0.95 ou marcos críticos atrasados</span></div>',
+    unsafe_allow_html=True,
+)
 
-tem_evm = df_fases[["PV","EV","AC"]].sum().sum() > 0
-
-if not tem_evm:
-    st.info("ℹ️ Dados de EVM não encontrados. Exporte do MS Project incluindo "
-            "COTA (PV), COTR (EV) e Custo Real (AC) para habilitar esta seção.")
-else:
-    df_evm = df_fases.groupby("Projeto", as_index=False).agg(
-        PV=("PV","sum"), EV=("EV","sum"), AC=("AC","sum"),
-        Pct=("Pct_Concluida","mean"),
-    )
-    df_evm["SPI"] = np.where(df_evm["PV"]>0, (df_evm["EV"]/df_evm["PV"]).round(3), np.nan)
-    df_evm["CPI"] = np.where(df_evm["AC"]>0, (df_evm["EV"]/df_evm["AC"]).round(3), np.nan)
-    df_evm["SV"]  = df_evm["EV"] - df_evm["PV"]
-    df_evm["CV"]  = df_evm["EV"] - df_evm["AC"]
-
-    cores_b = [
-        "#C62828" if (not np.isnan(s) and s < 0.90)
-        else "#B8860B" if (not np.isnan(s) and s < 1.0)
-        else "#1B3A6B"
-        for s in df_evm["SPI"].fillna(1)
-    ]
-    ev_max = df_evm["EV"].max()
-    tam_bolha = (df_evm["EV"].clip(lower=1) / max(ev_max, 1) * 40 + 15)
-
-    fig2 = go.Figure()
-    fig2.add_trace(go.Scatter(
-        x=df_evm["SPI"], y=df_evm["CPI"],
-        mode="markers+text",
-        marker=dict(size=tam_bolha, color=cores_b, opacity=0.80,
-                    line=dict(width=2, color="white")),
-        text=df_evm["Projeto"], textposition="top center",
-        textfont=dict(size=11, color="#0D1B2A"),
-        hovertemplate="<b>%{text}</b><br>SPI: %{x:.2f}<br>CPI: %{y:.2f}<extra></extra>",
-    ))
-    fig2.add_hline(y=1.0, line_dash="dot", line_color="#CCCCCC", line_width=1)
-    fig2.add_vline(x=1.0, line_dash="dot", line_color="#CCCCCC", line_width=1)
-    fig2.add_vline(x=0.90, line_dash="dash", line_color="#C62828", line_width=1)
-    cpi_max = df_evm["CPI"].dropna().max() if not df_evm["CPI"].isna().all() else 1.1
-    fig2.add_annotation(x=0.90, y=cpi_max + 0.05, text="Limite crítico",
-                        showarrow=False, font=dict(size=10, color="#C62828"), xanchor="left")
-    fig2.update_layout(
-        plot_bgcolor="white", paper_bgcolor="white",
-        height=320, margin=dict(l=40,r=20,t=20,b=40),
-        xaxis=dict(title="SPI — Prazo", gridcolor="#F0F2F6", zeroline=False),
-        yaxis=dict(title="CPI — Custo", gridcolor="#F0F2F6", zeroline=False),
-    )
-
-    col_g, col_t = st.columns([1,1])
-    with col_g:
-        st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar":False})
-    with col_t:
-        st.markdown("**Indicadores por Projeto**")
-        df_show = df_evm[["Projeto","SPI","CPI","SV","CV","Pct"]].copy()
-        df_show.columns = ["Projeto","SPI","CPI","SV (R$)","CV (R$)","Avanço"]
-        df_show["SV (R$)"] = df_show["SV (R$)"].apply(lambda x: f"R$ {x:,.0f}".replace(",","."))
-        df_show["CV (R$)"] = df_show["CV (R$)"].apply(lambda x: f"R$ {x:,.0f}".replace(",","."))
-        df_show["Avanço"]  = df_show["Avanço"].apply(lambda x: f"{x*100:.0f}%")
-
-        def hl(row):
-            try:
-                s = float(row["SPI"])
-                if s < 0.90: return ["background:#FDECEA"] * len(row)
-                if s < 1.0:  return ["background:#FFF8E1"] * len(row)
-            except: pass
-            return ["background:#E6F4EA"] * len(row)
-
-        st.dataframe(df_show.style.apply(hl, axis=1),
-                     use_container_width=True, hide_index=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 11. SECTION 3 — GOVERNANÇA DE INCERTEZAS
-# ──────────────────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-box">', unsafe_allow_html=True)
-st.markdown('<div class="section-header">⚠️ SECTION 3 — GOVERNANÇA DE INCERTEZAS: PONTOS CRÍTICOS E PLANOS DE AÇÃO</div>',
-            unsafe_allow_html=True)
-
+# Limiar ajustado para 0.95 conforme especificação
 df_crit = pd.concat([
-    df_fases[df_fases["SPI"].notna() & (df_fases["SPI"] < 0.90)],
+    df_fases[df_fases["SPI"].notna() & (df_fases["SPI"] < 0.95)],
     df_marcos[df_marcos["Marco_Atrasado"] == True],
 ]).drop_duplicates(subset=["Projeto"])
 
 if df_crit.empty:
-    st.success("✅ Nenhum desvio crítico identificado. Portfólio sob controle.")
+    st.success("✅ Nenhum alerta ativo. Todos os projetos operam dentro do limiar de desempenho.")
 else:
-    st.warning(f"⚠️ {len(df_crit)} projeto(s) requerem atenção da diretoria. "
-               "Preencha os campos abaixo antes da reunião.")
+    st.markdown(
+        f"<p style='font-size:12px;color:#6B7A99;margin-bottom:16px'>"
+        f"<b>{len(df_crit)}</b> projeto(s) com alertas ativos nesta data de referência.</p>",
+        unsafe_allow_html=True,
+    )
 
     if "acoes" not in st.session_state:
         st.session_state["acoes"] = {}
@@ -693,12 +621,22 @@ else:
     for _, row in df_crit.iterrows():
         pk  = row["Projeto"]
         spi = row.get("SPI", None)
-        spi_str = f"{spi:.2f}" if (spi is not None and not np.isnan(float(spi))) else "N/A"
+        spi_f = float(spi) if (spi is not None and not np.isnan(float(spi))) else None
+        spi_str = f"{spi_f:.2f}" if spi_f is not None else "N/A"
+
+        # Nível do alerta
+        eh_critico = spi_f is not None and spi_f < 0.90
+        eh_atencao = (spi_f is not None and 0.90 <= spi_f < 0.95) or bool(row.get("Marco_Atrasado"))
+        nivel_label = "ALERTA" if eh_critico else "ATENÇÃO"
+        cor_nivel   = "#C62828" if eh_critico else "#B8860B"
+        bg_nivel    = "#FDECEA" if eh_critico else "#FFF8E1"
+        borda_nivel = "#C62828" if eh_critico else "#B8860B"
 
         if pk not in st.session_state["acoes"]:
             st.session_state["acoes"][pk] = {
-                "impacto":"", "causa":"", "plano":"",
-                "resp": str(row.get("Responsavel","")),
+                "impacto": "", "causa": "", "plano": "",
+                "resp":    str(row.get("Responsavel", "")),
+                "prazo":   "",
             }
 
         desvio_dias = int((
@@ -706,52 +644,57 @@ else:
             pd.to_datetime(row["Termino_Baseline_str"])
         ).days)
 
-        with st.expander(
-            f"🔴 {pk}  |  SPI: {spi_str}  |  Desvio: +{desvio_dias} dias",
-            expanded=True
-        ):
-            m1, m2, m3 = st.columns(3)
-            with m1:
-                st.markdown(f"**Avanço Físico:** {row['Pct_Concluida']*100:.0f}%")
-                st.markdown(f"**Término Previsto:** {row['Termino_str']}")
-            with m2:
-                st.markdown(f"**Baseline:** {row['Termino_Baseline_str']}")
-                sv_val = row.get("SV", 0) or 0
-                st.markdown(f"**SV (Variância Prazo):** R$ {float(sv_val):,.0f}".replace(",","."))
-            with m3:
-                eh_critico = (spi is not None and not np.isnan(float(spi)) and float(spi) < 0.90)
-                badge = ('<span class="badge badge-red">CRÍTICO</span>' if eh_critico
-                         else '<span class="badge badge-yellow">ATENÇÃO</span>')
-                st.markdown(badge, unsafe_allow_html=True)
-                if row.get("Marco_Atrasado"):
-                    st.markdown('<span class="badge badge-red">MARCO ATRASADO</span>',
-                                unsafe_allow_html=True)
+        # ── Card de alerta ────────────────────────────────────────────────────
+        st.markdown(f"""
+        <div style='background:{bg_nivel};border-left:4px solid {borda_nivel};
+                    border-radius:0 10px 10px 0;padding:14px 20px;margin-bottom:6px'>
+          <div style='display:flex;justify-content:space-between;align-items:center'>
+            <span style='font-size:13px;font-weight:700;color:#0D1B2A'>
+              [ <span style='color:{cor_nivel}'>{nivel_label}</span> ] &nbsp; PROJETO: {pk}
+            </span>
+            <span style='font-size:11px;color:#8A9BB5'>
+              SPI: <b style='color:{cor_nivel}'>{spi_str}</b>
+              &nbsp;·&nbsp; Desvio: <b>+{desvio_dias} dias</b>
+              &nbsp;·&nbsp; Avanço: <b>{row["Pct_Concluida"]*100:.0f}%</b>
+            </span>
+          </div>
+        </div>""", unsafe_allow_html=True)
 
-            st.markdown("---")
-            fa, fb, fc, fd = st.columns(4)
+        # ── Campos editáveis em layout de árvore ──────────────────────────────
+        with st.expander("▸ Preencher / editar plano de ação", expanded=True):
+            fa, fb = st.columns(2)
             with fa:
                 st.session_state["acoes"][pk]["impacto"] = st.text_area(
-                    "🏢 Impacto no Negócio",
-                    value=st.session_state["acoes"][pk]["impacto"], height=100,
-                    placeholder="Ex: Atraso impacta receita de R$ 500k no Q3",
+                    "├── 🏢 Impacto no Negócio",
+                    value=st.session_state["acoes"][pk]["impacto"], height=90,
+                    placeholder="Ex: Risco de paralisação no processamento de relatórios de faturamento.",
                     key=f"imp_{pk}")
-            with fb:
                 st.session_state["acoes"][pk]["causa"] = st.text_area(
-                    "🔍 Causa Raiz",
-                    value=st.session_state["acoes"][pk]["causa"], height=100,
-                    placeholder="Ex: Volume de dados 3x maior que estimado",
+                    "├── 🔍 Causa Raiz do Desvio",
+                    value=st.session_state["acoes"][pk]["causa"], height=90,
+                    placeholder="Ex: Lentidão na validação de acessos de segurança e conectividade.",
                     key=f"cau_{pk}")
-            with fc:
+            with fb:
                 st.session_state["acoes"][pk]["plano"] = st.text_area(
-                    "🎯 Plano de Ação",
-                    value=st.session_state["acoes"][pk]["plano"], height=100,
-                    placeholder="Ex: +2 consultores por 3 semanas + revisão de escopo",
+                    "└── 🎯 Plano de Ação Proposto",
+                    value=st.session_state["acoes"][pk]["plano"], height=90,
+                    placeholder="Ex: Força-tarefa entre Cyber Security e fornecedor para liberação de portas.",
                     key=f"pla_{pk}")
-            with fd:
-                st.session_state["acoes"][pk]["resp"] = st.text_input(
-                    "👤 Responsável",
-                    value=st.session_state["acoes"][pk]["resp"],
-                    key=f"res_{pk}")
+                cr1, cr2 = st.columns(2)
+                with cr1:
+                    st.session_state["acoes"][pk]["resp"] = st.text_input(
+                        "    └── 👤 Responsável",
+                        value=st.session_state["acoes"][pk]["resp"],
+                        placeholder="Ex: Rafael Mechis",
+                        key=f"res_{pk}")
+                with cr2:
+                    st.session_state["acoes"][pk]["prazo"] = st.text_input(
+                        "    └── 📅 Prazo",
+                        value=st.session_state["acoes"][pk]["prazo"],
+                        placeholder="Ex: 22/Mai",
+                        key=f"prz_{pk}")
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
@@ -777,7 +720,7 @@ def gerar_excel(df_base, acoes):
         g.to_excel(writer, sheet_name="EVM_Consolidado", index=False)
 
         rows_ac = [{"Projeto":p,"Impacto":d["impacto"],"Causa Raiz":d["causa"],
-                    "Plano de Ação":d["plano"],"Responsável":d["resp"]}
+                    "Plano de Ação":d["plano"],"Responsável":d["resp"],"Prazo":d.get("prazo","")}
                    for p,d in acoes.items()]
         if rows_ac:
             pd.DataFrame(rows_ac).to_excel(writer, sheet_name="Planos_de_Acao", index=False)
