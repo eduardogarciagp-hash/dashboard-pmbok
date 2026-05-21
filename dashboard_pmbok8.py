@@ -1691,13 +1691,25 @@ for proj in projetos_gov:
                 if st.button("🗑️", key=f"del_{k}_{idx}", help="Remover esta linha"):
                     to_delete.append(idx)
 
-            # 3 campos de conteúdo
+            # 3 campos de conteúdo — altura automática baseada no texto
+            def _auto_h(txt, min_h=120, chars_per_line=52, line_h=20, pad=40):
+                if not txt: return min_h
+                lines = 0
+                for para in txt.split('\n'):
+                    lines += max(1, (len(para) // chars_per_line) + 1)
+                return max(min_h, lines * line_h + pad)
+
+            _h_imp = _auto_h(linhas[idx].get("impacto",""))
+            _h_cau = _auto_h(linhas[idx].get("causa",""))
+            _h_pla = _auto_h(linhas[idx].get("plano",""))
+            _h_max = max(_h_imp, _h_cau, _h_pla)  # todas com mesma altura
+
             c1, c2, c3 = st.columns(3)
             with c1:
                 linhas[idx]["impacto"] = st.text_area(
                     "📌 Impacto no Negócio",
                     value=linhas[idx].get("impacto", ""),
-                    height=120,
+                    height=_h_max,
                     placeholder="Descreva o impacto no negócio...",
                     key=f"impacto_{k}_{idx}",
                 )
@@ -1705,7 +1717,7 @@ for proj in projetos_gov:
                 linhas[idx]["causa"] = st.text_area(
                     "🔍 Causa Raiz (Hipótese)",
                     value=linhas[idx].get("causa", ""),
-                    height=120,
+                    height=_h_max,
                     placeholder="Descreva a causa raiz identificada...",
                     key=f"causa_{k}_{idx}",
                 )
@@ -1713,7 +1725,7 @@ for proj in projetos_gov:
                 linhas[idx]["plano"] = st.text_area(
                     "✅ Plano de Ação",
                     value=linhas[idx].get("plano", ""),
-                    height=120,
+                    height=_h_max,
                     placeholder="Ações, responsáveis e prazo...",
                     key=f"plano_{k}_{idx}",
                 )
