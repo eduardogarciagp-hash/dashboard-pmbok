@@ -1003,8 +1003,7 @@ function openModalMarco(m, p){{
 # 11. SECTION 2 — GOVERNANÇA DE INCERTEZAS (linhas editáveis + adicionar)
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown(
-    '<div class="section-title">Section 2 — Governança de Incertezas: '
-    'Pontos Críticos e Planos de Ação</div>',
+    '<div class="section-title">C. Governança de Incertezas: Pontos Críticos e Planos de Ação</div>',
     unsafe_allow_html=True,
 )
 
