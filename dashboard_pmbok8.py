@@ -131,16 +131,29 @@ def parse_xml(file_obj, project_name: str) -> list[dict]:
         pv      = _cfn(cf, 'Número4') or 0
         ev_val  = _cfn(cf, 'Número6') or 0
 
-        # SPI: prefer Texto3 (Cockpit), fallback to Número6/Número4
-        spi_direct = None
-        raw = (cf.get('Texto3', '') or '').replace(',', '.').strip()
-        try:
-            spi_direct = float(raw)
-        except:
-            pass
-        spi = spi_direct if spi_direct is not None else (
-            round(ev_val / pv, 3) if pv > 0 else None
-        )
+        # IDP = %_concluido / %_planejado da linha L1 do projeto
+        # %_concluido = Texto1 (BDF/Esteira) ou Número1 (Cockpit)
+        # %_planejado = Número7 (BDF/Esteira)
+        # IDP direto  = Texto3 (Cockpit, já calculado pelo MS Project)
+        def _cfpct(k):
+            v = (cf.get(k, '') or '').replace(',', '.').replace('%', '').strip()
+            try: return float(v) if v else None
+            except: return None
+
+        pct_real = _cfpct('Texto1') or _cfpct('Número1')
+        pct_plan = _cfpct('Número7')
+        idp_direct_raw = (cf.get('Texto3', '') or '').replace(',', '.').strip()
+        try:    idp_direct = float(idp_direct_raw)
+        except: idp_direct = None
+
+        if pct_plan and pct_plan > 0 and pct_real is not None:
+            spi = round(pct_real / pct_plan, 4)
+        elif idp_direct is not None:
+            spi = round(idp_direct, 4)
+        elif pv > 0 and ev_val > 0:
+            spi = round(ev_val / pv, 4)
+        else:
+            spi = None
 
         status = (cf.get('Texto2', '') or '').strip()
         resp   = (cf.get('Texto4', '') or cf.get('Texto5', '')).strip()
@@ -333,9 +346,23 @@ df_root = df_view[
 ]
 n_projetos  = df_view['projeto'].nunique()
 pct_media   = df_root['pct'].mean() if not df_root.empty else 0
-spi_medio   = df_root['spi_num'].dropna().mean() if not df_root.empty else None
 crits_count = df_view[(df_view['spi_num'] < spi_limiar) & df_view['spi_num'].notna()]['projeto'].nunique()
 marcos_tot  = df_view[df_view['is_milestone']].shape[0]
+
+# IDP por projeto: pega a primeira linha L1 de cada projeto
+# IDP = Texto1(% concluido) / Número7(% planejado)  — ou Texto3 direto (Cockpit)
+_l1_rows = df_view[
+    (df_view['nivel'] == 1) &
+    (~df_view['nome'].isin(['MS Project_Teste_Formulas_2', 'NOME DO PROJETO']))
+].drop_duplicates(subset='projeto', keep='first')
+
+idp_por_projeto = {}
+for _, r in _l1_rows.iterrows():
+    idp_por_projeto[r['projeto']] = round(r['spi_num'], 4) if pd.notna(r['spi_num']) else None
+
+# IDP médio do portfólio = média simples dos IDPs por projeto
+_vals = [v for v in idp_por_projeto.values() if v is not None]
+spi_medio = round(sum(_vals) / len(_vals), 4) if _vals else None
 
 c1, c2, c3, c4, c5 = st.columns(5)
 with c1: kpi_card("PROJETOS ATIVOS", str(n_projetos), "monitorados", "#2563EB")
@@ -348,24 +375,23 @@ with c4: kpi_card("PROJETOS CRÍTICOS", str(crits_count), f"com IDP < {spi_limia
 with c5: kpi_card("MARCOS NO PORTFÓLIO", str(marcos_tot), "identificados", "#7C3AED")
 
 # ── Linha de IDP por projeto com carinhas ────────────────────────────────────
-if not df_root.empty:
-    projetos_idp = df_root[["projeto","spi_num"]].dropna(subset=["spi_num"]).drop_duplicates("projeto")
-    if not projetos_idp.empty:
-        cols_idp = st.columns(len(projetos_idp))
-        for i, (_, r) in enumerate(projetos_idp.iterrows()):
-            face, cor_face, label_face = idp_face(r["spi_num"])
-            with cols_idp[i]:
-                st.markdown(f"""
+if idp_por_projeto:
+    cols_idp = st.columns(len(idp_por_projeto))
+    for i, (proj, idp_val) in enumerate(idp_por_projeto.items()):
+        face, cor_face, label_face = idp_face(idp_val)
+        idp_txt = f"{idp_val:.2f}" if idp_val is not None else "N/A"
+        with cols_idp[i]:
+            st.markdown(f"""
 <div style="background:#fff;border-radius:10px;padding:12px 16px;
             border-left:5px solid {cor_face};box-shadow:0 1px 6px rgba(0,0,0,.08);
             text-align:center;margin-top:8px;">
   <div style="font-size:10px;font-weight:600;color:#9AA5BE;
               text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">
-    {r["projeto"]}
+    {proj}
   </div>
   <div style="font-size:28px;line-height:1.1;">{face}</div>
   <div style="font-size:20px;font-weight:700;color:{cor_face};margin:2px 0;">
-    IDP {r["spi_num"]:.2f}
+    IDP {idp_txt}
   </div>
   <div style="font-size:11px;color:{cor_face};font-weight:600;">{label_face}</div>
 </div>""", unsafe_allow_html=True)
