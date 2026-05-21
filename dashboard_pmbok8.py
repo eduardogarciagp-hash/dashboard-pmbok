@@ -790,6 +790,17 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
   animation:pulse 1.4s ease-in-out infinite;
 }}
 @keyframes pulse{{0%,100%{{box-shadow:0 0 8px #EF444499;}}50%{{box-shadow:0 0 20px #EF4444CC;}}}}
+/* MARCO GO-LIVE — estrela amarela */
+.marco-golive{{
+  width:18px;height:18px;
+  background:none;box-shadow:none;transform:none;
+  border-radius:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;line-height:1;cursor:pointer;
+  transition:transform .15s,filter .15s;
+  margin-top:-2px;
+}}
+.marco-wrap:hover .marco-golive{{transform:scale(1.4);filter:brightness(1.3);}}
 /* CONECTOR vertical diamante → label */
 .marco-stem{{
   width:1px;height:14px;
@@ -981,6 +992,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
     <div class="leg"><div class="leg-d" style="background:#22C55E"></div>Marco Concluído</div>
     <div class="leg"><div class="leg-d" style="background:#3B82F6"></div>Marco no Prazo</div>
     <div class="leg"><div class="leg-d" style="background:#EF4444"></div>Marco Atrasado</div>
+    <div class="leg"><span style="font-size:13px;line-height:1;">⭐</span>&nbsp;Go-Live</div>
     <div class="leg" style="color:#63B3ED;border-left:2px solid #63B3ED;padding-left:5px;margin-left:12px;">Linha Hoje</div>
   </div>
 </div>
@@ -1101,6 +1113,11 @@ if(HOJE_MS>=MIN&&HOJE_MS<=MAX){{
 }}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+function isGolive(nome){{
+  var n=(nome||'').toLowerCase();
+  return n.includes('go-live')||n.includes('golive')||n.includes('go live');
+}}
+
 function fmtDate(ms){{
   if(ms==null) return '—';
   const d=new Date(ms);
@@ -1197,7 +1214,12 @@ PROJECTS.forEach((p,i)=>{{
 
     // Diamante
     const mk=document.createElement('div');
-    mk.className='marco '+(m.concluido?'done':m.atrasado?'late':'ok');
+    if(isGolive(m.nome)){{
+      mk.className='marco-golive';
+      mk.textContent='⭐';
+    }} else {{
+      mk.className='marco '+(m.concluido?'done':m.atrasado?'late':'ok');
+    }}
     wrap.appendChild(mk);
 
     // Conector vertical
@@ -1471,7 +1493,12 @@ function saveEditModal(){{
         wrap.style.left=xp+'%'; wrap.style.top='26px';
 
         const mk=document.createElement('div');
-        mk.className='marco '+(concluido?'done':atrasado?'late':'ok');
+        if(isGolive(novoNome)){{
+          mk.className='marco-golive';
+          mk.textContent='⭐';
+        }} else {{
+          mk.className='marco '+(concluido?'done':atrasado?'late':'ok');
+        }}
         wrap.appendChild(mk);
 
         const stem=document.createElement('div'); stem.className='marco-stem';
