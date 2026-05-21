@@ -426,7 +426,7 @@ for i, (proj, idp_val) in enumerate(idp_por_projeto_final.items()):
         st.markdown(f"""
 <div style='background:#fff;border-radius:10px;padding:10px 16px 8px 16px;
             border-left:5px solid {cor_face};box-shadow:0 1px 6px rgba(0,0,0,.08);
-            text-align:center;'>
+            text-align:center;margin-top:12px;'>
   <div style='font-size:28px;line-height:1.1;'>{face}</div>
   <div style='font-size:18px;font-weight:700;color:{cor_face};margin:2px 0;'>IDP {idp_txt}</div>
   <div style='font-size:11px;color:{cor_face};font-weight:600;'>{label_face}</div>
@@ -792,6 +792,77 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 .leg{{display:flex;align-items:center;gap:5px;font-size:9px;color:#475569;}}
 .leg-d{{width:9px;height:9px;transform:rotate(45deg);border-radius:1px;flex-shrink:0;}}
 .leg-b{{width:20px;height:7px;border-radius:2px;flex-shrink:0;}}
+
+/* CONTEXT MENU */
+#ctx-menu{{
+  display:none;position:fixed;z-index:99999;
+  background:#1E293B;border:1px solid #334155;
+  border-radius:10px;padding:6px;
+  box-shadow:0 12px 40px rgba(0,0,0,.8);
+  min-width:160px;
+  animation:fadeIn .12s ease;
+}}
+#ctx-menu.show{{display:block;}}
+.ctx-item{{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;border-radius:7px;
+  font-size:12px;font-weight:600;color:#CBD5E1;
+  cursor:pointer;transition:background .1s;
+  user-select:none;
+}}
+.ctx-item:hover{{background:#0F1E2E;}}
+.ctx-item.danger{{color:#F87171;}}
+.ctx-item.danger:hover{{background:rgba(239,68,68,.1);}}
+.ctx-sep{{height:1px;background:#2D3F55;margin:4px 0;}}
+
+/* EDIT MODAL */
+#edit-overlay{{
+  display:none;position:fixed;inset:0;z-index:10000;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;
+}}
+#edit-overlay.open{{display:flex;}}
+#edit-modal{{
+  background:#1E293B;border:1px solid #334155;
+  border-radius:14px;padding:28px 32px;
+  width:min(440px,92vw);
+  box-shadow:0 24px 64px rgba(0,0,0,.8);
+  animation:fadeIn .18s ease;
+}}
+#edit-modal h3{{
+  font-size:15px;font-weight:700;color:#E2E8F0;
+  margin-bottom:20px;display:flex;align-items:center;gap:8px;
+}}
+.edit-field{{margin-bottom:16px;}}
+.edit-label{{
+  font-size:10px;font-weight:700;color:#475569;
+  text-transform:uppercase;letter-spacing:.07em;
+  margin-bottom:6px;display:block;
+}}
+.edit-input{{
+  width:100%;background:#0F1E2E;
+  border:1px solid #334155;border-radius:8px;
+  padding:9px 12px;font-size:13px;color:#E2E8F0;
+  outline:none;transition:border .15s;
+  font-family:inherit;
+}}
+.edit-input:focus{{border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,.15);}}
+.edit-actions{{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}}
+.btn-save{{
+  background:#3B82F6;color:#fff;border:none;
+  padding:9px 22px;border-radius:8px;
+  font-size:12px;font-weight:700;cursor:pointer;
+  transition:background .15s;
+}}
+.btn-save:hover{{background:#2563EB;}}
+.btn-cancel{{
+  background:transparent;color:#64748B;
+  border:1px solid #334155;
+  padding:9px 18px;border-radius:8px;
+  font-size:12px;font-weight:600;cursor:pointer;
+  transition:all .15s;
+}}
+.btn-cancel:hover{{color:#CBD5E1;border-color:#475569;}}
 </style>
 </head>
 <body>
@@ -811,6 +882,38 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 </div>
 
 <div id="marco-tip"></div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" id="ctx-edit">✏️ Editar Marco</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" id="ctx-del">🗑️ Excluir Marco</div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="edit-overlay">
+  <div id="edit-modal">
+    <h3><span id="edit-diamond" style="width:12px;height:12px;transform:rotate(45deg);border-radius:2px;display:inline-block;background:#3B82F6;flex-shrink:0;"></span> Editar Marco</h3>
+    <div class="edit-field">
+      <label class="edit-label">Nome do Marco</label>
+      <input class="edit-input" id="edit-nome" type="text" placeholder="Nome do marco...">
+    </div>
+    <div style="display:flex;gap:14px;">
+      <div class="edit-field" style="flex:1;">
+        <label class="edit-label">Data de Término</label>
+        <input class="edit-input" id="edit-data" type="date">
+      </div>
+      <div class="edit-field" style="flex:1;">
+        <label class="edit-label">% Concluído</label>
+        <input class="edit-input" id="edit-pct" type="number" min="0" max="100" step="1" placeholder="0">
+      </div>
+    </div>
+    <div class="edit-actions">
+      <button class="btn-cancel" onclick="closeEditModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveEditModal()">Salvar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL -->
 <div id="modal-overlay">
@@ -1033,7 +1136,22 @@ PROJECTS.forEach((p,i)=>{{
       marcoTip.classList.remove('show');
     }});
 
+    // Left click → modal detalhes
     wrap.addEventListener('click', e=>{{ e.stopPropagation(); openModalMarco(m, p); }});
+
+    // Right click → context menu
+    wrap.addEventListener('contextmenu', e=>{{
+      e.preventDefault(); e.stopPropagation();
+      marcoTip.classList.remove('show');
+      ctxTargetMarco = m;
+      ctxTargetProj  = p;
+      ctxTargetWrap  = wrap;
+      const cx=e.clientX, cy=e.clientY;
+      ctxMenu.style.left=(cx+2)+'px';
+      ctxMenu.style.top=(cy+2)+'px';
+      ctxMenu.classList.add('show');
+    }});
+
     tla.appendChild(wrap);
   }});
 
@@ -1107,6 +1225,81 @@ function openModal(p){{
     ${{mkHTML}}`;
   overlay.classList.add('open');
 }}
+
+// ── Context menu & Edit logic ────────────────────────────────────────────────
+const ctxMenu      = document.getElementById('ctx-menu');
+const editOverlay  = document.getElementById('edit-overlay');
+let ctxTargetMarco = null;
+let ctxTargetProj  = null;
+let ctxTargetWrap  = null;
+
+// Hide context menu on any click elsewhere
+document.addEventListener('click', ()=>ctxMenu.classList.remove('show'));
+document.addEventListener('keydown', e=>{{
+  if(e.key==='Escape') {{ ctxMenu.classList.remove('show'); closeEditModal(); }}
+}});
+
+// ── Editar ───────────────────────────────────────────────────────────────────
+document.getElementById('ctx-edit').addEventListener('click', ()=>{{
+  if(!ctxTargetMarco) return;
+  ctxMenu.classList.remove('show');
+  const mc2=ctxTargetMarco.concluido?'#22C55E':ctxTargetMarco.atrasado?'#EF4444':'#3B82F6';
+  document.getElementById('edit-diamond').style.background=mc2;
+  document.getElementById('edit-nome').value=ctxTargetMarco.nome;
+  // Format timestamp to yyyy-mm-dd
+  const dt=ctxTargetMarco.termino?new Date(ctxTargetMarco.termino):new Date();
+  document.getElementById('edit-data').value=
+    dt.getUTCFullYear()+'-'+
+    String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+
+    String(dt.getUTCDate()).padStart(2,'0');
+  document.getElementById('edit-pct').value=Math.round(ctxTargetMarco.pct);
+  editOverlay.classList.add('open');
+}});
+
+function closeEditModal(){{ editOverlay.classList.remove('open'); }}
+editOverlay.addEventListener('click', e=>{{ if(e.target===editOverlay) closeEditModal(); }});
+
+function saveEditModal(){{
+  if(!ctxTargetMarco||!ctxTargetWrap) return;
+  const novoNome = document.getElementById('edit-nome').value.trim()||ctxTargetMarco.nome;
+  const novaData = document.getElementById('edit-data').value;
+  const novoPct  = parseInt(document.getElementById('edit-pct').value)||0;
+
+  // Update data object
+  ctxTargetMarco.nome=novoNome;
+  ctxTargetMarco.pct=novoPct;
+  if(novaData){{
+    const [y,mo,d]=novaData.split('-').map(Number);
+    ctxTargetMarco.termino=Date.UTC(y,mo-1,d);
+  }}
+  ctxTargetMarco.concluido=novoPct>=100;
+  ctxTargetMarco.atrasado=(!ctxTargetMarco.concluido)&&(ctxTargetMarco.termino<Date.now());
+
+  // Update diamond color
+  const newCls='marco '+(ctxTargetMarco.concluido?'done':ctxTargetMarco.atrasado?'late':'ok');
+  const diamond=ctxTargetWrap.querySelector('.marco');
+  if(diamond) diamond.className=newCls;
+
+  // Update label text
+  const lbl=ctxTargetWrap.querySelector('.marco-lbl');
+  if(lbl) lbl.textContent=novoNome;
+
+  // Reposition wrap
+  const newXp=d2p(ctxTargetMarco.termino);
+  if(newXp>=0&&newXp<=100) ctxTargetWrap.style.left=newXp+'%';
+
+  closeEditModal();
+}}
+
+// ── Excluir ──────────────────────────────────────────────────────────────────
+document.getElementById('ctx-del').addEventListener('click', ()=>{{
+  if(!ctxTargetMarco||!ctxTargetProj||!ctxTargetWrap) return;
+  ctxMenu.classList.remove('show');
+  const idx=ctxTargetProj.marcos.indexOf(ctxTargetMarco);
+  if(idx>-1) ctxTargetProj.marcos.splice(idx,1);
+  ctxTargetWrap.remove();
+  ctxTargetMarco=null; ctxTargetWrap=null;
+}});
 
 function openModalMarco(m, p){{
   const mc=m.concluido?'#22C55E':m.atrasado?'#EF4444':'#3B82F6';
