@@ -1585,6 +1585,11 @@ if 'gov_data' not in st.session_state:
     st.session_state.gov_data = {}
 if 'gov_del' not in st.session_state:
     st.session_state.gov_del = {}
+# Versão dos defaults — incrementar para forçar recarga do conteúdo PMO
+_GOV_VERSION = "v2"
+if st.session_state.get('gov_version') != _GOV_VERSION:
+    st.session_state.gov_data = {}
+    st.session_state.gov_version = _GOV_VERSION
 
 # ── Análise PMO PMBOK 8ª Ed. — Pontos críticos pré-preenchidos por especialista ─
 # Baseado na análise técnica dos XMLs em 21/05/2026.
