@@ -1,8 +1,9 @@
 # =============================================================================
 # DASHBOARD EXECUTIVO DE PORTFÓLIO — PMBOK 8ª EDIÇÃO
 # Layout: Arquitetura Executiva para Diretoria
+# Multi-Excel + Preenchimento Automático via IA (Claude API)
 # =============================================================================
-# INSTALAÇÃO:  pip install streamlit pandas plotly openpyxl
+# INSTALAÇÃO:  pip install streamlit pandas plotly openpyxl requests
 # EXECUÇÃO:    streamlit run dashboard_pmbok8.py
 # =============================================================================
 
@@ -12,6 +13,8 @@ import plotly.graph_objects as go
 import numpy as np
 from datetime import date, timedelta
 import io
+import json
+import requests
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 0. CONFIGURAÇÃO DA PÁGINA
@@ -56,6 +59,11 @@ st.markdown("""
     section[data-testid="stSidebar"] { background-color: #0D1B2A; }
     section[data-testid="stSidebar"] * { color: #FFFFFF !important; }
     .modebar { display: none !important; }
+    .ia-badge {
+        display:inline-block; background:#EEF2FF; color:#3730A3;
+        font-size:10px; font-weight:700; padding:2px 8px;
+        border-radius:10px; margin-left:8px; vertical-align:middle;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -81,7 +89,137 @@ def calcular_evm(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 2. MOCK DATA
+# 2. PIPELINE DE NORMALIZAÇÃO — 1 arquivo Excel → DataFrame padronizado
+# ──────────────────────────────────────────────────────────────────────────────
+MAPA_COLUNAS = {
+    # Datas
+    "Início":"Inicio","Start":"Inicio",
+    "Término":"Termino","Finish":"Termino",
+    # Tarefa
+    "Nome":"Nome da Tarefa","Name":"Nome da Tarefa",
+    "Task Name":"Nome da Tarefa","Nome da Tarefa":"Nome da Tarefa",
+    # Estrutura
+    "Nível da estrutura de tópicos":"Nivel","Outline Level":"Nivel",
+    # Duração
+    "Duração":"Duracao","Duration":"Duracao",
+    # ID
+    "Id":"ID",
+    # Recursos
+    "Nomes dos Recursos":"Recursos","Resource Names":"Recursos",
+    # % avanço
+    "% concluída":"Pct_Concluida","% Concluída":"Pct_Concluida",
+    "% Complete":"Pct_Concluida","% Completo":"Pct_Concluida",
+    # EVM
+    "Custo Real (CR)":"AC","Custo Real":"AC","Actual Cost":"AC","ACWP":"AC","AC":"AC",
+    "COTA":"PV","Baseline Cost":"PV","BCWS":"PV","PV":"PV",
+    "COTR":"EV","Earned Value":"EV","BCWP":"EV","EV":"EV",
+    # Marco
+    "Marco":"Marco","Milestone":"Marco",
+    # Projeto / Portfolio
+    "Projeto":"Projeto","Project":"Projeto",
+    "Portfólio":"Portfolio","Portfolio":"Portfolio",
+}
+
+def normalizar_arquivo(arquivo) -> pd.DataFrame:
+    """
+    Lê um único arquivo Excel e retorna um DataFrame normalizado
+    com todas as colunas internas padronizadas.
+    O nome do projeto é derivado do nome do arquivo se não houver coluna Projeto.
+    """
+    try:
+        df = pd.read_excel(arquivo)
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao ler '{arquivo.name}': {e}")
+        return pd.DataFrame()
+
+    # Normaliza cabeçalhos
+    df.columns = df.columns.str.strip()
+
+    # Renomeia pelo mapa
+    df.rename(columns={k: v for k, v in MAPA_COLUNAS.items() if k in df.columns}, inplace=True)
+
+    # Remove linhas completamente vazias
+    df.dropna(how="all", inplace=True)
+
+    # Nome do projeto = coluna Projeto (se existir) ou nome do arquivo
+    nome_arquivo = arquivo.name.replace(".xlsx","").replace(".xls","").strip()
+    if "Projeto" not in df.columns or df["Projeto"].isna().all():
+        df["Projeto"] = nome_arquivo
+    else:
+        # Preenche células vazias com o nome do arquivo
+        df["Projeto"] = df["Projeto"].fillna(nome_arquivo)
+
+    if "Portfolio" not in df.columns:
+        df["Portfolio"] = "Portfólio Geral"
+
+    # Defaults para colunas ausentes
+    defaults = {
+        "Responsavel":"","Causa_Raiz":"","Plano_Acao":"",
+        "Pct_Concluida":0.0,"AC":0.0,"PV":0.0,"EV":0.0,"Recursos":"",
+    }
+    for col, val in defaults.items():
+        if col not in df.columns:
+            df[col] = val
+
+    # Datas
+    df["Inicio"]  = pd.to_datetime(df.get("Inicio"),  errors="coerce")
+    df["Termino"] = pd.to_datetime(df.get("Termino"), errors="coerce")
+    df = df.dropna(subset=["Inicio","Termino"])
+    if df.empty:
+        st.warning(f"⚠️ '{arquivo.name}' não contém linhas com datas válidas de Início e Término.")
+        return pd.DataFrame()
+
+    if "Termino_Baseline" not in df.columns:
+        df["Termino_Baseline"] = df["Termino"]
+
+    # % Concluída — normaliza para 0..1
+    df["Pct_Concluida"] = pd.to_numeric(df["Pct_Concluida"], errors="coerce").fillna(0)
+    if df["Pct_Concluida"].max() > 1:
+        df["Pct_Concluida"] = df["Pct_Concluida"] / 100
+
+    # Marco: duração zero ou coluna explícita
+    if "Marco" not in df.columns:
+        if "Duracao" in df.columns:
+            df["Marco"] = df["Duracao"].astype(str).str.strip().isin(
+                ["0","0 dias","0d","0 days"])
+        else:
+            df["Marco"] = False
+    else:
+        df["Marco"] = df["Marco"].astype(str).str.lower().isin(
+            ["sim","true","1","yes"])
+
+    # Tipo por Nível de estrutura
+    if "Nivel" in df.columns:
+        df["Nivel"] = pd.to_numeric(df["Nivel"], errors="coerce").fillna(99)
+        def definir_tipo(row):
+            if row["Marco"]:      return "Marco"
+            if row["Nivel"] <= 1: return "Fase"
+            return "Tarefa"
+        df["Tipo"] = df.apply(definir_tipo, axis=1)
+    else:
+        df["Tipo"] = df["Marco"].apply(lambda m: "Marco" if m else "Fase")
+
+    # EVM
+    df = calcular_evm(df)
+
+    # Marco atrasado
+    df["Marco_Atrasado"] = (
+        df["Marco"] &
+        (pd.to_datetime(df["Termino"], errors="coerce") >
+         pd.to_datetime(df["Termino_Baseline"], errors="coerce"))
+    )
+
+    # Strings de data para Plotly
+    df["Inicio_str"]           = df["Inicio"].dt.strftime("%Y-%m-%d")
+    df["Termino_str"]          = df["Termino"].dt.strftime("%Y-%m-%d")
+    df["Termino_Baseline_str"] = pd.to_datetime(
+        df["Termino_Baseline"], errors="coerce").dt.strftime("%Y-%m-%d")
+
+    return df
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 3. MOCK DATA
 # ──────────────────────────────────────────────────────────────────────────────
 @st.cache_data
 def carregar_dados_mock() -> pd.DataFrame:
@@ -158,117 +296,142 @@ def carregar_dados_mock() -> pd.DataFrame:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 3. CARREGAMENTO — Excel real ou mock
+# 4. CARREGAMENTO MULTI-ARQUIVO
 # ──────────────────────────────────────────────────────────────────────────────
-def carregar_dados(arquivo_excel=None) -> pd.DataFrame:
-    if arquivo_excel is None:
-        return carregar_dados_mock()
+def carregar_multi_excel(arquivos: list) -> pd.DataFrame:
+    """
+    Recebe lista de arquivos uploadados.
+    Normaliza cada um e concatena num único DataFrame.
+    """
+    frames = []
+    for arq in arquivos:
+        df_norm = normalizar_arquivo(arq)
+        if not df_norm.empty:
+            frames.append(df_norm)
 
-    df_raw = pd.read_excel(arquivo_excel)
-    df_raw.columns = df_raw.columns.str.strip()
+    if not frames:
+        return pd.DataFrame()
 
-    with st.expander("🔍 Diagnóstico: colunas detectadas no Excel", expanded=False):
-        st.code("\n".join([f"{i+1:02d}. {c}" for i, c in enumerate(df_raw.columns)]))
-        st.dataframe(df_raw.head(3), use_container_width=True)
+    df_total = pd.concat(frames, ignore_index=True)
 
-    col_map = {
-        "Início":"Inicio","Start":"Inicio",
-        "Término":"Termino","Finish":"Termino",
-        "Nome":"Nome da Tarefa","Name":"Nome da Tarefa",
-        "Task Name":"Nome da Tarefa","Nome da Tarefa":"Nome da Tarefa",
-        "Nível da estrutura de tópicos":"Nivel","Outline Level":"Nivel",
-        "Duração":"Duracao","Duration":"Duracao",
-        "Id":"ID",
-        "Nomes dos Recursos":"Recursos","Resource Names":"Recursos",
-        "% concluída":"Pct_Concluida","% Concluída":"Pct_Concluida",
-        "% Complete":"Pct_Concluida","% Completo":"Pct_Concluida",
-        "Custo Real (CR)":"AC","Custo Real":"AC","Actual Cost":"AC","ACWP":"AC","AC":"AC",
-        "COTA":"PV","Baseline Cost":"PV","BCWS":"PV","PV":"PV",
-        "COTR":"EV","Earned Value":"EV","BCWP":"EV","EV":"EV",
-        "Marco":"Marco","Milestone":"Marco",
-        "Projeto":"Projeto","Project":"Projeto",
-        "Portfólio":"Portfolio","Portfolio":"Portfolio",
+    # Garante unicidade de projetos duplicados entre arquivos distintos
+    # (ex: dois arquivos com coluna Projeto = "Alpha" → distingue pelo nome do arquivo)
+    return df_total
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 5. IA — Análise automática de projetos críticos via Claude API
+# ──────────────────────────────────────────────────────────────────────────────
+def gerar_analise_ia(projeto: str, dados_projeto: dict) -> dict:
+    """
+    Envia os dados do projeto crítico para a API do Claude e retorna
+    os campos de Impacto, Causa Raiz e Plano de Ação preenchidos automaticamente.
+    """
+    prompt = f"""Você é um especialista sênior em Gestão de Projetos (PMP) e deve analisar 
+os dados abaixo de um projeto com desvio crítico de prazo e gerar uma análise executiva objetiva.
+
+DADOS DO PROJETO:
+- Nome: {projeto}
+- SPI (Índice de Desempenho de Prazo): {dados_projeto.get('spi', 'N/A')}
+- Avanço Físico: {dados_projeto.get('pct', 0)*100:.0f}%
+- Desvio em dias: +{dados_projeto.get('desvio_dias', 0)} dias
+- Término Previsto: {dados_projeto.get('termino', 'N/A')}
+- Baseline de Término: {dados_projeto.get('baseline', 'N/A')}
+- Tarefas com maior atraso: {dados_projeto.get('tarefas_criticas', 'N/A')}
+- Variância de Prazo (SV): R$ {dados_projeto.get('sv', 0):,.0f}
+
+Responda SOMENTE com um JSON válido no formato abaixo, sem texto adicional, sem markdown:
+{{
+  "impacto": "Uma frase objetiva sobre o impacto no negócio (máx 200 chars)",
+  "causa": "Uma frase objetiva sobre a provável causa raiz (máx 200 chars)",
+  "plano": "Uma frase objetiva com o plano de ação recomendado (máx 200 chars)"
+}}"""
+
+    try:
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"Content-Type": "application/json"},
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 500,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=20,
+        )
+        if resp.status_code == 200:
+            texto = resp.json()["content"][0]["text"].strip()
+            # Remove possíveis blocos markdown ```json ... ```
+            texto = texto.replace("```json","").replace("```","").strip()
+            return json.loads(texto)
+    except Exception:
+        pass
+
+    # Fallback se a API não responder
+    return {
+        "impacto": "⚠️ Análise automática indisponível. Preencha manualmente.",
+        "causa":   "⚠️ Análise automática indisponível. Preencha manualmente.",
+        "plano":   "⚠️ Análise automática indisponível. Preencha manualmente.",
     }
-    df_raw.rename(columns={k:v for k,v in col_map.items() if k in df_raw.columns}, inplace=True)
-
-    nome_arquivo = getattr(arquivo_excel, "name", "Projeto")
-    nome_projeto = nome_arquivo.replace(".xlsx","").replace(".xls","")
-
-    if "Portfolio"     not in df_raw.columns: df_raw["Portfolio"]     = "Portfólio Geral"
-    if "Projeto"       not in df_raw.columns: df_raw["Projeto"]       = nome_projeto
-    if "Responsavel"   not in df_raw.columns: df_raw["Responsavel"]   = ""
-    if "Causa_Raiz"    not in df_raw.columns: df_raw["Causa_Raiz"]    = ""
-    if "Plano_Acao"    not in df_raw.columns: df_raw["Plano_Acao"]    = ""
-    if "Pct_Concluida" not in df_raw.columns: df_raw["Pct_Concluida"] = 0.0
-    if "AC"            not in df_raw.columns: df_raw["AC"]            = 0.0
-    if "PV"            not in df_raw.columns: df_raw["PV"]            = 0.0
-    if "EV"            not in df_raw.columns: df_raw["EV"]            = 0.0
-    if "Recursos"      not in df_raw.columns: df_raw["Recursos"]      = ""
-
-    df_raw["Inicio"]  = pd.to_datetime(df_raw.get("Inicio"),  errors="coerce")
-    df_raw["Termino"] = pd.to_datetime(df_raw.get("Termino"), errors="coerce")
-    df_raw = df_raw.dropna(subset=["Inicio","Termino"])
-
-    if "Termino_Baseline" not in df_raw.columns:
-        df_raw["Termino_Baseline"] = df_raw["Termino"]
-
-    df_raw["Pct_Concluida"] = pd.to_numeric(df_raw["Pct_Concluida"], errors="coerce").fillna(0)
-    if df_raw["Pct_Concluida"].max() > 1:
-        df_raw["Pct_Concluida"] = df_raw["Pct_Concluida"] / 100
-
-    if "Marco" not in df_raw.columns:
-        if "Duracao" in df_raw.columns:
-            df_raw["Marco"] = df_raw["Duracao"].astype(str).str.strip().isin(
-                ["0","0 dias","0d","0 days"])
-        else:
-            df_raw["Marco"] = False
-    else:
-        df_raw["Marco"] = df_raw["Marco"].astype(str).str.lower().isin(
-            ["sim","true","1","yes"])
-
-    if "Nivel" in df_raw.columns:
-        df_raw["Nivel"] = pd.to_numeric(df_raw["Nivel"], errors="coerce").fillna(99)
-        def definir_tipo(row):
-            if row["Marco"]:      return "Marco"
-            if row["Nivel"] <= 1: return "Fase"
-            return "Tarefa"
-        df_raw["Tipo"] = df_raw.apply(definir_tipo, axis=1)
-    else:
-        df_raw["Tipo"] = df_raw["Marco"].apply(lambda m: "Marco" if m else "Fase")
-
-    df_raw = calcular_evm(df_raw)
-    df_raw["Marco_Atrasado"] = (
-        df_raw["Marco"] &
-        (pd.to_datetime(df_raw["Termino"], errors="coerce") >
-         pd.to_datetime(df_raw["Termino_Baseline"], errors="coerce"))
-    )
-    df_raw["Inicio_str"]           = df_raw["Inicio"].dt.strftime("%Y-%m-%d")
-    df_raw["Termino_str"]          = df_raw["Termino"].dt.strftime("%Y-%m-%d")
-    df_raw["Termino_Baseline_str"] = pd.to_datetime(
-        df_raw["Termino_Baseline"], errors="coerce").dt.strftime("%Y-%m-%d")
-    return df_raw
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 4. SIDEBAR
+# 6. SIDEBAR
 # ──────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚙️ Configurações")
     st.markdown("---")
-    arquivo  = st.file_uploader("📂 Importar Excel MS Project", type=["xlsx","xls"])
+
+    # Upload múltiplo
+    arquivos = st.file_uploader(
+        "📂 Importar Excel(s) do MS Project",
+        type=["xlsx","xls"],
+        accept_multiple_files=True,   # ← múltiplos arquivos
+        help="Selecione um ou mais arquivos Excel exportados do MS Project.",
+    )
+
+    if arquivos:
+        st.markdown(f"**{len(arquivos)} arquivo(s) carregado(s):**")
+        for arq in arquivos:
+            st.markdown(f"• {arq.name}")
+
+    st.markdown("---")
     data_ref = st.date_input("📅 Data de Referência", value=date.today())
     logo_url = st.text_input("🖼️ URL do Logo (opcional)", value="")
+    st.markdown("---")
+    st.markdown("**🤖 Análise por IA**")
+    usar_ia = st.toggle("Preencher Section 3 com IA", value=False,
+                        help="Usa a API do Claude para gerar automaticamente "
+                             "Impacto, Causa Raiz e Plano de Ação dos projetos críticos.")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 5. CARREGA DADOS
+# 7. CARREGA DADOS
 # ──────────────────────────────────────────────────────────────────────────────
-df_full        = carregar_dados(arquivo)
+if arquivos:
+    df_full = carregar_multi_excel(arquivos)
+    if df_full.empty:
+        st.error("Nenhum dado válido encontrado nos arquivos. Verifique o formato.")
+        st.stop()
+
+    # Diagnóstico colapsado
+    with st.expander(f"🔍 Diagnóstico: {len(arquivos)} arquivo(s) carregado(s)", expanded=False):
+        for arq in arquivos:
+            st.markdown(f"**{arq.name}**")
+            try:
+                df_diag = pd.read_excel(arq)
+                df_diag.columns = df_diag.columns.str.strip()
+                st.code("\n".join([f"{i+1:02d}. {c}" for i, c in enumerate(df_diag.columns)]))
+                st.dataframe(df_diag.head(2), use_container_width=True)
+            except Exception as e:
+                st.warning(f"Erro: {e}")
+else:
+    df_full = carregar_dados_mock()
+
 projetos_lista = ["Todos"] + sorted(df_full["Projeto"].dropna().unique().tolist())
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 6. CABEÇALHO + FILTROS
+# 8. CABEÇALHO + FILTROS
 # ──────────────────────────────────────────────────────────────────────────────
 col_logo, col_title, col_filtros = st.columns([1, 4, 3])
 
@@ -288,7 +451,8 @@ with col_title:
         "<span style='font-size:19px;font-weight:800;color:#0D1B2A'>"
         "DASHBOARD DE GOVERNANÇA E VALOR DO PORTFÓLIO</span><br>"
         f"<span style='font-size:12px;color:#8A9BB5'>PMBOK 8ª Ed. · "
-        f"Referência: {data_ref.strftime('%d/%m/%Y')}</span></div>",
+        f"Referência: {data_ref.strftime('%d/%m/%Y')} · "
+        f"{len(arquivos) if arquivos else 'Mock'} fonte(s) de dados</span></div>",
         unsafe_allow_html=True)
 
 with col_filtros:
@@ -306,7 +470,7 @@ df_marcos = df[df["Marco"] == True]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 7. BARRA DE SAÚDE HOLÍSTICA
+# 9. BARRA DE SAÚDE HOLÍSTICA
 # ──────────────────────────────────────────────────────────────────────────────
 spi_saude = df_fases["SPI"].dropna().mean() if not df_fases.empty else None
 pct_saude = min(float(spi_saude), 1.0) * 100 if spi_saude is not None else 0
@@ -314,22 +478,20 @@ n_crit_s  = int((df_fases["SPI"].dropna() < 0.90).sum())
 n_total_s = int(df_fases["SPI"].dropna().count())
 
 if spi_saude is None or n_total_s == 0:
-    cor_saude   = "#8A9BB5"; label_saude = "SEM DADOS EVM"
+    cor_saude = "#8A9BB5"; label_saude = "SEM DADOS EVM"
 elif pct_saude >= 95:
-    cor_saude   = "#1E7E34"; label_saude = "ESTRATÉGIA SAUDÁVEL"
+    cor_saude = "#1E7E34"; label_saude = "ESTRATÉGIA SAUDÁVEL"
 elif pct_saude >= 90:
-    cor_saude   = "#B8860B"; label_saude = "ATENÇÃO — DESVIOS MODERADOS"
+    cor_saude = "#B8860B"; label_saude = "ATENÇÃO — DESVIOS MODERADOS"
 else:
-    cor_saude   = "#C62828"; label_saude = "CRÍTICO — INTERVENÇÃO NECESSÁRIA"
+    cor_saude = "#C62828"; label_saude = "CRÍTICO — INTERVENÇÃO NECESSÁRIA"
 
 if spi_saude and n_total_s > 0:
-    spi_str   = f"{spi_saude:.2f}"
-    barra_html = f"""
+    st.markdown(f"""
     <div style='background:#FFFFFF;border-radius:10px;padding:14px 22px;
                 box-shadow:0 1px 6px rgba(0,0,0,0.07);margin-bottom:16px'>
       <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>
-        <span style='font-size:11px;font-weight:700;color:#8A9BB5;
-                     text-transform:uppercase;letter-spacing:.8px'>
+        <span style='font-size:11px;font-weight:700;color:#8A9BB5;text-transform:uppercase;letter-spacing:.8px'>
           SAÚDE HOLÍSTICA DA ESTRATÉGIA — {visao_sel.upper()}
         </span>
         <span style='font-size:12px;font-weight:700;color:{cor_saude}'>{label_saude}</span>
@@ -339,19 +501,18 @@ if spi_saude and n_total_s > 0:
       </div>
       <div style='display:flex;justify-content:space-between;margin-top:6px'>
         <span style='font-size:11px;color:#8A9BB5'>
-          SPI Médio: <b style='color:{cor_saude}'>{spi_str}</b>
+          SPI Médio: <b style='color:{cor_saude}'>{spi_saude:.2f}</b>
           &nbsp;·&nbsp; {n_crit_s} de {n_total_s} projetos em zona crítica
         </span>
         <span style='font-size:11px;color:#8A9BB5'>{pct_saude:.1f}% da meta de entrega</span>
       </div>
-    </div>"""
+    </div>""", unsafe_allow_html=True)
 else:
-    barra_html = f"""
+    st.markdown(f"""
     <div style='background:#FFFFFF;border-radius:10px;padding:14px 22px;
                 box-shadow:0 1px 6px rgba(0,0,0,0.07);margin-bottom:16px'>
       <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>
-        <span style='font-size:11px;font-weight:700;color:#8A9BB5;
-                     text-transform:uppercase;letter-spacing:.8px'>
+        <span style='font-size:11px;font-weight:700;color:#8A9BB5;text-transform:uppercase;letter-spacing:.8px'>
           SAÚDE HOLÍSTICA DA ESTRATÉGIA — {visao_sel.upper()}
         </span>
         <span style='font-size:12px;font-weight:700;color:#8A9BB5'>SEM DADOS EVM</span>
@@ -361,16 +522,14 @@ else:
       </div>
       <div style='margin-top:6px'>
         <span style='font-size:11px;color:#8A9BB5'>
-          Importe um Excel com colunas EVM (COTA/PV, COTR/EV, Custo Real/AC) para habilitar.
+          Importe Excel com colunas EVM (COTA/PV, COTR/EV, Custo Real/AC) para habilitar.
         </span>
       </div>
-    </div>"""
-
-st.markdown(barra_html, unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 8. CARDS KPI
+# 10. CARDS KPI
 # ──────────────────────────────────────────────────────────────────────────────
 n_projetos = df_fases["Projeto"].nunique()
 pct_media  = df_fases["Pct_Concluida"].mean() * 100 if not df_fases.empty else 0
@@ -406,7 +565,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 9. SECTION 1 — ROADMAP EXECUTIVO & MARCOS
+# 11. SECTION 1 — ROADMAP EXECUTIVO
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-box">', unsafe_allow_html=True)
 st.markdown('<div class="section-header">📅 SECTION 1 — ROADMAP EXECUTIVO & MARCOS DE VALOR</div>',
@@ -426,12 +585,10 @@ else:
     hoje_str = date.today().strftime("%Y-%m-%d")
     hoje_dt  = date.today()
 
-    # ── Barras de fase ────────────────────────────────────────────────────────
     for _, row in df_gantt.iterrows():
         dur     = max((pd.to_datetime(row["Termino_str"]) -
                        pd.to_datetime(row["Inicio_str"])).days, 1)
         spi_val = row["SPI"] if not pd.isna(row.get("SPI", np.nan)) else None
-
         if spi_val is None:
             cor_barra = cores_proj.get(row["Projeto"], "#1B3A6B")
         elif spi_val < 0.90:
@@ -441,11 +598,10 @@ else:
         else:
             cor_barra = cores_proj.get(row["Projeto"], "#1B3A6B")
 
-        label_pct  = f"{row['Pct_Concluida']*100:.0f}%" if row["Pct_Concluida"] > 0 else ""
-        nome_fase  = row["Nome da Tarefa"]
-        # Texto dentro da barra: "Nome da Fase · XX%"
-        texto_barra = f"{nome_fase}  {label_pct}".strip(" ·") if label_pct else nome_fase
-        spi_hover  = f"<br>SPI: {spi_val:.2f}" if spi_val else ""
+        label_pct   = f"{row['Pct_Concluida']*100:.0f}%" if row["Pct_Concluida"] > 0 else ""
+        nome_fase   = row["Nome da Tarefa"]
+        texto_barra = f"{nome_fase}  {label_pct}".strip() if label_pct else nome_fase
+        spi_hover   = f"<br>SPI: {spi_val:.2f}" if spi_val else ""
 
         fig.add_trace(go.Bar(
             x=[dur], y=[row["Projeto"]],
@@ -464,37 +620,33 @@ else:
             showlegend=False,
         ))
 
-    # ── Marcos — com status calculado dentro do loop (bug corrigido) ──────────
     for _, row in df_marcos2.iterrows():
         termino_dt = pd.to_datetime(row["Termino_str"]).date()
         concluido  = row["Pct_Concluida"] >= 1.0
-        atrasado   = bool(row["Marco_Atrasado"])   # ← variável definida aqui
-        y_proj     = row["Projeto"]                 # ← variável definida aqui
+        atrasado   = bool(row["Marco_Atrasado"])
+        y_proj     = row["Projeto"]
 
         if concluido:
-            cor_m2 = "#1E7E34"; simbolo = "star";   label_icone = "📅"
+            cor_m2 = "#1E7E34"; simbolo = "star";    label_icone = "📅"
         elif atrasado:
-            cor_m2 = "#C62828"; simbolo = "circle"; label_icone = "🔴"
+            cor_m2 = "#C62828"; simbolo = "circle";  label_icone = "🔴"
         elif termino_dt > hoje_dt:
             cor_m2 = "#8A9BB5"; simbolo = "diamond"; label_icone = "🔶"
         else:
             cor_m2 = "#1E7E34"; simbolo = "diamond"; label_icone = "♦"
 
         status_txt = (
-            "📅 CONCLUÍDO"   if concluido
-            else "🔴 ATRASADO"  if atrasado
-            else "🔶 AGENDADO"  if termino_dt > hoje_dt
+            "📅 CONCLUÍDO"  if concluido
+            else "🔴 ATRASADO" if atrasado
+            else "🔶 AGENDADO" if termino_dt > hoje_dt
             else "♦ NO PRAZO"
         )
-
-        # Rótulo do marco: ícone + nome curto + data
-        data_fmt  = pd.to_datetime(row["Termino_str"]).strftime("%d/%b")
+        data_fmt   = pd.to_datetime(row["Termino_str"]).strftime("%d/%b")
         nome_curto = row["Nome da Tarefa"][:22] + "…" if len(row["Nome da Tarefa"]) > 22 else row["Nome da Tarefa"]
         rotulo     = f"  {label_icone} {nome_curto} ({data_fmt})"
 
         fig.add_trace(go.Scatter(
-            x=[row["Termino_str"]],
-            y=[y_proj],
+            x=[row["Termino_str"]], y=[y_proj],
             mode="markers+text",
             marker=dict(symbol=simbolo, size=16, color=cor_m2,
                         line=dict(width=2, color="white")),
@@ -510,47 +662,34 @@ else:
             showlegend=False,
         ))
 
-    # Linha "Hoje"
-    fig.add_shape(
-        type="line", xref="x", yref="paper",
-        x0=hoje_str, x1=hoje_str, y0=0, y1=1,
-        line=dict(color="#4A90D9", width=2, dash="dash"),
-    )
-    fig.add_annotation(
-        x=hoje_str, y=1.02, yref="paper",
-        text="Hoje", showarrow=False, xanchor="center",
-        font=dict(size=11, color="#4A90D9"),
-    )
-
-    # ── Linhas de grade trimestrais ───────────────────────────────────────────
-    todas_datas = (
-        pd.to_datetime(df_gantt["Inicio_str"].tolist() + df_gantt["Termino_str"].tolist())
-    )
+    # Grade trimestral
+    todas_datas = pd.to_datetime(
+        df_gantt["Inicio_str"].tolist() + df_gantt["Termino_str"].tolist())
     data_min = todas_datas.min() - timedelta(days=15)
     data_max = todas_datas.max() + timedelta(days=30)
-
-    # Gera inícios de trimestre no intervalo
-    ano_ini = data_min.year
     trimestres = []
-    for ano in range(ano_ini, data_max.year + 2):
+    for ano in range(data_min.year, data_max.year + 2):
         for mes in [1, 4, 7, 10]:
             dt = pd.Timestamp(year=ano, month=mes, day=1)
             if data_min <= dt <= data_max:
                 trimestres.append(dt)
 
     for qt in trimestres:
-        fig.add_shape(
-            type="line", xref="x", yref="paper",
-            x0=qt.strftime("%Y-%m-%d"), x1=qt.strftime("%Y-%m-%d"),
-            y0=0, y1=1,
-            line=dict(color="#E0E4EC", width=1, dash="dot"),
-        )
-        label_q = f"Q{(qt.month-1)//3+1} {qt.year}"
+        fig.add_shape(type="line", xref="x", yref="paper",
+                      x0=qt.strftime("%Y-%m-%d"), x1=qt.strftime("%Y-%m-%d"),
+                      y0=0, y1=1, line=dict(color="#E0E4EC", width=1, dash="dot"))
         fig.add_annotation(
             x=qt.strftime("%Y-%m-%d"), y=1.04, yref="paper",
-            text=label_q, showarrow=False, xanchor="center",
-            font=dict(size=10, color="#8A9BB5", family="Arial"),
-        )
+            text=f"Q{(qt.month-1)//3+1} {qt.year}",
+            showarrow=False, xanchor="center",
+            font=dict(size=10, color="#8A9BB5", family="Arial"))
+
+    fig.add_shape(type="line", xref="x", yref="paper",
+                  x0=hoje_str, x1=hoje_str, y0=0, y1=1,
+                  line=dict(color="#4A90D9", width=2, dash="dash"))
+    fig.add_annotation(x=hoje_str, y=1.02, yref="paper", text="Hoje",
+                       showarrow=False, xanchor="center",
+                       font=dict(size=11, color="#4A90D9"))
 
     fig.update_layout(
         barmode="stack",
@@ -560,15 +699,12 @@ else:
         xaxis=dict(
             type="date",
             range=[data_min.strftime("%Y-%m-%d"), data_max.strftime("%Y-%m-%d")],
-            gridcolor="#F8F9FB",
-            tickformat="%d/%b", dtick="M1",
+            gridcolor="#F8F9FB", tickformat="%d/%b", dtick="M1",
             tickfont=dict(size=10, color="#B0BAD0"),
             showline=False, zeroline=False,
         ),
-        yaxis=dict(
-            autorange="reversed", showgrid=False,
-            tickfont=dict(size=12, color="#0D1B2A", family="Arial"),
-        ),
+        yaxis=dict(autorange="reversed", showgrid=False,
+                   tickfont=dict(size=12, color="#0D1B2A", family="Arial")),
         hoverlabel=dict(bgcolor="white", font_size=12),
     )
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -590,7 +726,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 10. SECTION 2 — GOVERNANÇA DE INCERTEZAS
+# 12. SECTION 2 — GOVERNANÇA DE INCERTEZAS
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-box">', unsafe_allow_html=True)
 st.markdown(
@@ -600,7 +736,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Limiar ajustado para 0.95 conforme especificação
 df_crit = pd.concat([
     df_fases[df_fases["SPI"].notna() & (df_fases["SPI"] < 0.95)],
     df_marcos[df_marcos["Marco_Atrasado"] == True],
@@ -618,15 +753,49 @@ else:
     if "acoes" not in st.session_state:
         st.session_state["acoes"] = {}
 
+    # Botão de análise IA global
+    if usar_ia:
+        if st.button("🤖 Gerar análise automática com IA para todos os projetos críticos",
+                     use_container_width=False):
+            with st.spinner("Analisando projetos com IA..."):
+                for _, row in df_crit.iterrows():
+                    pk = row["Projeto"]
+                    spi_v = row.get("SPI", None)
+
+                    # Tarefas mais críticas do projeto
+                    tarefas_df = df_fases[df_fases["Projeto"] == pk].nsmallest(3, "SPI")
+                    tarefas_str = "; ".join(tarefas_df["Nome da Tarefa"].tolist()) if not tarefas_df.empty else "N/A"
+
+                    dados = {
+                        "spi":          f"{spi_v:.2f}" if spi_v and not np.isnan(float(spi_v)) else "N/A",
+                        "pct":          float(row["Pct_Concluida"]),
+                        "desvio_dias":  int((pd.to_datetime(row["Termino_str"]) -
+                                            pd.to_datetime(row["Termino_Baseline_str"])).days),
+                        "termino":      row["Termino_str"],
+                        "baseline":     row["Termino_Baseline_str"],
+                        "sv":           float(row.get("SV", 0) or 0),
+                        "tarefas_criticas": tarefas_str,
+                    }
+                    analise = gerar_analise_ia(pk, dados)
+
+                    if pk not in st.session_state["acoes"]:
+                        st.session_state["acoes"][pk] = {
+                            "impacto":"","causa":"","plano":"",
+                            "resp": str(row.get("Responsavel","")), "prazo":"",
+                        }
+                    st.session_state["acoes"][pk]["impacto"] = analise.get("impacto","")
+                    st.session_state["acoes"][pk]["causa"]   = analise.get("causa","")
+                    st.session_state["acoes"][pk]["plano"]   = analise.get("plano","")
+            st.success("✅ Análise IA concluída! Revise os campos abaixo antes da reunião.")
+
+    # Renderiza cards por projeto crítico
     for _, row in df_crit.iterrows():
         pk  = row["Projeto"]
         spi = row.get("SPI", None)
-        spi_f = float(spi) if (spi is not None and not np.isnan(float(spi))) else None
+        spi_f   = float(spi) if (spi is not None and not np.isnan(float(spi))) else None
         spi_str = f"{spi_f:.2f}" if spi_f is not None else "N/A"
 
-        # Nível do alerta
         eh_critico = spi_f is not None and spi_f < 0.90
-        eh_atencao = (spi_f is not None and 0.90 <= spi_f < 0.95) or bool(row.get("Marco_Atrasado"))
         nivel_label = "ALERTA" if eh_critico else "ATENÇÃO"
         cor_nivel   = "#C62828" if eh_critico else "#B8860B"
         bg_nivel    = "#FDECEA" if eh_critico else "#FFF8E1"
@@ -634,9 +803,8 @@ else:
 
         if pk not in st.session_state["acoes"]:
             st.session_state["acoes"][pk] = {
-                "impacto": "", "causa": "", "plano": "",
-                "resp":    str(row.get("Responsavel", "")),
-                "prazo":   "",
+                "impacto":"","causa":"","plano":"",
+                "resp": str(row.get("Responsavel","")), "prazo":"",
             }
 
         desvio_dias = int((
@@ -644,7 +812,6 @@ else:
             pd.to_datetime(row["Termino_Baseline_str"])
         ).days)
 
-        # ── Card de alerta ────────────────────────────────────────────────────
         st.markdown(f"""
         <div style='background:{bg_nivel};border-left:4px solid {borda_nivel};
                     border-radius:0 10px 10px 0;padding:14px 20px;margin-bottom:6px'>
@@ -660,39 +827,54 @@ else:
           </div>
         </div>""", unsafe_allow_html=True)
 
-        # ── Campos editáveis em layout de árvore ──────────────────────────────
         with st.expander("▸ Preencher / editar plano de ação", expanded=True):
+            # Botão IA individual por projeto
+            if usar_ia:
+                if st.button(f"🤖 Analisar '{pk}' com IA", key=f"ia_{pk}"):
+                    with st.spinner(f"Analisando {pk}..."):
+                        tarefas_df  = df_fases[df_fases["Projeto"] == pk].nsmallest(3,"SPI")
+                        tarefas_str = "; ".join(tarefas_df["Nome da Tarefa"].tolist()) if not tarefas_df.empty else "N/A"
+                        dados = {
+                            "spi": spi_str, "pct": float(row["Pct_Concluida"]),
+                            "desvio_dias": desvio_dias,
+                            "termino": row["Termino_str"], "baseline": row["Termino_Baseline_str"],
+                            "sv": float(row.get("SV",0) or 0), "tarefas_criticas": tarefas_str,
+                        }
+                        analise = gerar_analise_ia(pk, dados)
+                        st.session_state["acoes"][pk]["impacto"] = analise.get("impacto","")
+                        st.session_state["acoes"][pk]["causa"]   = analise.get("causa","")
+                        st.session_state["acoes"][pk]["plano"]   = analise.get("plano","")
+                    st.rerun()
+
             fa, fb = st.columns(2)
             with fa:
                 st.session_state["acoes"][pk]["impacto"] = st.text_area(
                     "├── 🏢 Impacto no Negócio",
                     value=st.session_state["acoes"][pk]["impacto"], height=90,
-                    placeholder="Ex: Risco de paralisação no processamento de relatórios de faturamento.",
+                    placeholder="Ex: Risco de paralisação no processamento de relatórios.",
                     key=f"imp_{pk}")
                 st.session_state["acoes"][pk]["causa"] = st.text_area(
                     "├── 🔍 Causa Raiz do Desvio",
                     value=st.session_state["acoes"][pk]["causa"], height=90,
-                    placeholder="Ex: Lentidão na validação de acessos de segurança e conectividade.",
+                    placeholder="Ex: Lentidão na validação de acessos de segurança.",
                     key=f"cau_{pk}")
             with fb:
                 st.session_state["acoes"][pk]["plano"] = st.text_area(
                     "└── 🎯 Plano de Ação Proposto",
                     value=st.session_state["acoes"][pk]["plano"], height=90,
-                    placeholder="Ex: Força-tarefa entre Cyber Security e fornecedor para liberação de portas.",
+                    placeholder="Ex: Força-tarefa entre Cyber Security e fornecedor.",
                     key=f"pla_{pk}")
                 cr1, cr2 = st.columns(2)
                 with cr1:
                     st.session_state["acoes"][pk]["resp"] = st.text_input(
                         "    └── 👤 Responsável",
                         value=st.session_state["acoes"][pk]["resp"],
-                        placeholder="Ex: Rafael Mechis",
-                        key=f"res_{pk}")
+                        placeholder="Ex: Rafael Mechis", key=f"res_{pk}")
                 with cr2:
                     st.session_state["acoes"][pk]["prazo"] = st.text_input(
                         "    └── 📅 Prazo",
                         value=st.session_state["acoes"][pk]["prazo"],
-                        placeholder="Ex: 22/Mai",
-                        key=f"prz_{pk}")
+                        placeholder="Ex: 22/Mai", key=f"prz_{pk}")
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
@@ -701,7 +883,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 12. EXPORTAÇÃO
+# 13. EXPORTAÇÃO
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-box">', unsafe_allow_html=True)
 st.markdown('<div class="section-header">📥 EXPORTAR RELATÓRIO EXECUTIVO</div>',
@@ -719,15 +901,18 @@ def gerar_excel(df_base, acoes):
         g["CPI"] = np.where(g["AC"]>0,(g["EV"]/g["AC"]).round(3),np.nan)
         g.to_excel(writer, sheet_name="EVM_Consolidado", index=False)
 
-        rows_ac = [{"Projeto":p,"Impacto":d["impacto"],"Causa Raiz":d["causa"],
-                    "Plano de Ação":d["plano"],"Responsável":d["resp"],"Prazo":d.get("prazo","")}
-                   for p,d in acoes.items()]
+        rows_ac = [
+            {"Projeto":p,"Impacto":d["impacto"],"Causa Raiz":d["causa"],
+             "Plano de Ação":d["plano"],"Responsável":d["resp"],"Prazo":d.get("prazo","")}
+            for p,d in acoes.items()
+        ]
         if rows_ac:
             pd.DataFrame(rows_ac).to_excel(writer, sheet_name="Planos_de_Acao", index=False)
 
-        if not df_marcos.empty:
-            dm = df_marcos[["Portfolio","Projeto","Nome da Tarefa",
-                             "Termino_str","Termino_Baseline_str","Marco_Atrasado"]].copy()
+        df_m = df_base[df_base["Marco"]==True]
+        if not df_m.empty:
+            dm = df_m[["Portfolio","Projeto","Nome da Tarefa",
+                        "Termino_str","Termino_Baseline_str","Marco_Atrasado"]].copy()
             dm.columns = ["Portfólio","Projeto","Marco","Término","Baseline","Atrasado"]
             dm.to_excel(writer, sheet_name="Marcos", index=False)
 
