@@ -561,72 +561,9 @@ for proj in sorted(df_view['projeto'].unique()):
     r0      = l1.iloc[0]
     idp_val = idp_por_projeto_final.get(proj)
 
-    # ── Fase PMBOK 8ª Edição — 3 sinais combinados ─────────────────────────────
-    # Sinal 1: % real de conclusão (Texto1 ou PercentComplete)
-    pct_proj = float(r0['pct'])
-
-    # Sinal 2: marcos concluídos deste projeto
-    marcos_def_temp = {
-        "Business Data Fabric": [
-            {"nome": "Kick-off Projeto",               "data": "2026-03-25", "pct": 100},
-            {"nome": "Assinatura Contrato MS Fabric",  "data": "2026-06-09", "pct": 0},
-            {"nome": "Assinatura Contrato Implantação","data": "2026-06-09", "pct": 0},
-            {"nome": "Ativação SKU / Go-Live Fabric",  "data": "2026-06-23", "pct": 0},
-            {"nome": "Publicação Política Governança", "data": "2026-04-30", "pct": 0},
-            {"nome": "Demanda Concluída – SAC GO-LIVE","data": "2026-07-02", "pct": 0},
-            {"nome": "Encerramento do Projeto",        "data": "2026-12-11", "pct": 0},
-        ],
-        "Cockpit Engenharia": [
-            {"nome": "Aprovação TAP",                  "data": "2026-05-22", "pct": 64},
-            {"nome": "Kick-off Fase 1",                "data": "2026-06-05", "pct": 100},
-            {"nome": "Assinatura Contrato Fase 2",     "data": "2026-08-14", "pct": 0},
-            {"nome": "GO-LIVE",                        "data": "2026-10-29", "pct": 0},
-        ],
-        "Esteira Analytics": [
-            {"nome": "Definição Entregas Q1",          "data": "2026-01-02", "pct": 100},
-            {"nome": "Assinatura Contrato Estratégia", "data": "2026-03-06", "pct": 100},
-            {"nome": "Go Live Estratégia de Dados",    "data": "2026-04-30", "pct": 100},
-            {"nome": "Go Live CEO Digital Boardroom",  "data": "2026-04-30", "pct": 100},
-            {"nome": "Conclusão Entregas Q1",          "data": "2026-05-27", "pct": 87},
-            {"nome": "Conclusão Entregas Q2",          "data": "2026-06-30", "pct": 0},
-            {"nome": "Conclusão Entregas Q3",          "data": "2026-09-30", "pct": 0},
-            {"nome": "Conclusão Entregas Q4",          "data": "2026-12-31", "pct": 0},
-        ],
-    }
-    _marcos_proj = marcos_def_temp.get(proj, [])
-    _kickoff_concluido    = any(m['pct'] >= 100 and 'kick' in m['nome'].lower() for m in _marcos_proj)
-    _assinatura_concluida = any(m['pct'] >= 100 and 'assinatura' in m['nome'].lower() for m in _marcos_proj)
-    _golive_concluido     = any(m['pct'] >= 100 and ('go-live' in m['nome'].lower() or 'go live' in m['nome'].lower() or 'golive' in m['nome'].lower()) for m in _marcos_proj)
-    _encerramento_concluido = any(m['pct'] >= 100 and 'encerramento' in m['nome'].lower() for m in _marcos_proj)
-
-    # Sinal 3: posição temporal (% do período decorrido)
-    _hoje = date.today()
-    _pct_tempo = 0.0
-    if pd.notna(r0['inicio']) and pd.notna(r0['termino']):
-        _total = (r0['termino'].date() - r0['inicio'].date()).days
-        _dec   = (_hoje - r0['inicio'].date()).days
-        _pct_tempo = round(_dec / _total * 100, 1) if _total > 0 else 0
-
-    # ── Decisão de fase (PMBOK 8ª Ed.) ───────────────────────────────────────
-    # ENCERRAMENTO: GO-LIVE ou encerramento concluído, OU %real >= 90
-    if _golive_concluido or _encerramento_concluido or pct_proj >= 90:
-        bar_cor   = "#22C55E"  # Verde esmeralda
-        fase_nome = "Encerramento"
-
-    # EXECUÇÃO E CONTROLE: kick-off concluído E trabalho em andamento (20-89%)
-    elif _kickoff_concluido and 20 <= pct_proj < 90:
-        bar_cor   = "#F59E0B"  # Âmbar
-        fase_nome = "Execução e Controle"
-
-    # PLANEJAMENTO: kick-off concluído mas trabalho < 20%, OU contratos em negociação
-    elif _kickoff_concluido or _assinatura_concluida or (5 <= pct_proj < 20):
-        bar_cor   = "#3B82F6"  # Azul
-        fase_nome = "Planejamento"
-
-    # INICIAÇÃO: nenhum marco concluído e % < 5
-    else:
-        bar_cor   = "#6366F1"  # Índigo
-        fase_nome = "Iniciação" 
+    # Cor neutra — barra cinza, progresso por %
+    bar_cor   = "#CBD5E1"
+    fase_nome = ""
 
     # ── Marcos curados por análise PMO PMBOK 8ª Edição ──────────────────────────
     # Marcos definidos com critério técnico: eventos significativos que representam
@@ -723,37 +660,8 @@ for proj in sorted(df_view['projeto'].unique()):
             "termino": _ts(s['termino']),
         })
 
-    # ── Segmentos de fase curados por análise PMO PMBOK 8ª Ed. ─────────────────
-    # Datas definidas com base na análise técnica do cronograma real de cada projeto.
-    # Critério: natureza do trabalho, não % de conclusão.
-    from datetime import datetime as _dt_seg
-    def _d(s):
-        return int(_dt_seg.strptime(s, '%Y-%m-%d').timestamp() * 1000)
-
-    FASES_CURADAS = {
-        "Business Data Fabric": [
-            [_d("2025-12-01"), _d("2026-03-25"), "#6366F1", "Iniciação"],
-            [_d("2026-03-25"), _d("2026-06-09"), "#3B82F6", "Planejamento"],
-            [_d("2026-06-09"), _d("2026-11-30"), "#F59E0B", "Execução e Controle"],
-            [_d("2026-11-30"), _d("2026-12-11"), "#22C55E", "Encerramento"],
-        ],
-        "Cockpit Engenharia": [
-            [_d("2025-12-22"), _d("2026-01-02"), "#6366F1", "Iniciação"],
-            [_d("2026-01-02"), _d("2026-06-05"), "#3B82F6", "Planejamento"],
-            [_d("2026-06-05"), _d("2026-10-21"), "#F59E0B", "Execução e Controle"],
-            [_d("2026-10-21"), _d("2026-10-29"), "#22C55E", "Encerramento"],
-        ],
-        "Esteira Analytics": [
-            [_d("2025-12-22"), _d("2026-01-02"), "#6366F1", "Iniciação"],
-            [_d("2026-01-02"), _d("2026-03-06"), "#3B82F6", "Planejamento"],
-            [_d("2026-03-06"), _d("2026-11-30"), "#F59E0B", "Execução e Controle"],
-            [_d("2026-11-30"), _d("2026-12-31"), "#22C55E", "Encerramento"],
-        ],
-    }
-
-    _segs = FASES_CURADAS.get(proj, [
-        [_ts(r0['inicio']), _ts(r0['termino']), "#F59E0B", "Execução e Controle"]
-    ])
+    # Sem segmentos de fase — barra simples com % de conclusão
+    _segs = []
 
     proj_data.append({
         "projeto":  proj,
@@ -1070,11 +978,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
   <div id="header-row"></div>
   <div id="body"></div>
   <div id="legend">
-    <div class="leg"><div class="leg-b" style="background:#6366F1"></div>Iniciação</div>
-    <div class="leg"><div class="leg-b" style="background:#3B82F6"></div>Planejamento</div>
-    <div class="leg"><div class="leg-b" style="background:#F59E0B"></div>Execução e Controle</div>
-    <div class="leg"><div class="leg-b" style="background:#22C55E"></div>Encerramento</div>
-    <div class="leg" style="margin-left:12px;"><div class="leg-d" style="background:#22C55E"></div>Marco Concluído</div>
+    <div class="leg"><div class="leg-d" style="background:#22C55E"></div>Marco Concluído</div>
     <div class="leg"><div class="leg-d" style="background:#3B82F6"></div>Marco no Prazo</div>
     <div class="leg"><div class="leg-d" style="background:#EF4444"></div>Marco Atrasado</div>
     <div class="leg" style="color:#63B3ED;border-left:2px solid #63B3ED;padding-left:5px;margin-left:12px;">Linha Hoje</div>
@@ -1240,58 +1144,44 @@ PROJECTS.forEach((p,i)=>{{
   const tla=document.createElement('div');
   tla.className='tl-area';
 
-  // BAR SEGMENTADA — uma faixa por fase PMBOK, extensível por marcos
+  // BAR simples: fundo branco/cinza claro, preenchimento cinza por % conclusão
   if(p.inicio!=null&&p.termino!=null){{
-    // Fim real da barra = término do projeto ou marco mais distante
     let barEndMs = p.termino;
     if(p.marcos&&p.marcos.length>0)
       p.marcos.forEach(m=>{{ if(m.termino!=null&&m.termino>barEndMs) barEndMs=m.termino; }});
 
-    // Container invisível que cobre toda a extensão
-    const barWrap=document.createElement('div');
-    barWrap.style.cssText='position:absolute;top:16px;height:32px;border-radius:5px;overflow:hidden;cursor:pointer;';
     const x0all=d2p(p.inicio), x1all=d2p(barEndMs);
     const lpAll=Math.max(0,x0all), rpAll=Math.min(100,x1all);
-    barWrap.style.left=lpAll+'%'; barWrap.style.width=(rpAll-lpAll)+'%';
+
+    const barWrap=document.createElement('div');
+    barWrap.style.cssText=`position:absolute;top:18px;height:28px;border-radius:6px;
+      overflow:hidden;cursor:pointer;
+      background:#F1F5F9;border:1px solid #CBD5E1;
+      left:${{lpAll}}%;width:${{rpAll-lpAll}}%;`;
     barWrap.addEventListener('click',()=>openModal(p));
     barWrap.title='Clique para detalhes';
 
-    // Render cada segmento de fase
-    const segs = p.segs && p.segs.length>0 ? p.segs : [[p.inicio,p.termino,p.cor,p.fase||'']];
-    segs.forEach(seg=>{{
-      const [sIni,sFim,sCor,sLabel]=seg;
-      if(sIni==null||sFim==null) return;
-      const sx0=d2p(sIni), sx1=d2p(sFim);
-      const slp=Math.max(0,sx0), srp=Math.min(100,sx1), swp=srp-slp;
-      if(swp<0.05) return;
+    // Preenchimento cinza proporcional ao % concluído
+    const fill=document.createElement('div');
+    fill.style.cssText=`position:absolute;top:0;left:0;bottom:0;
+      width:${{p.pct}}%;
+      background:#94A3B8;
+      border-radius:5px 0 0 5px;`;
+    barWrap.appendChild(fill);
 
-      // Converter coordenadas absolutas em % relativa ao barWrap
-      const wrapW = rpAll - lpAll;
-      const relL  = ((slp - lpAll) / wrapW * 100).toFixed(3)+'%';
-      const relW  = (swp / wrapW * 100).toFixed(3)+'%';
-
-      const seg_el=document.createElement('div');
-      seg_el.style.cssText=`position:absolute;top:0;bottom:0;left:${{relL}};width:${{relW}};background:${{sCor}};opacity:.88;`;
-      barWrap.appendChild(seg_el);
-    }});
-
-    // Barra de progresso sobreposta (branca translúcida)
-    const prog=document.createElement('div');
-    prog.style.cssText='position:absolute;top:0;left:0;bottom:0;background:rgba(255,255,255,.15);pointer-events:none;border-radius:5px 0 0 5px;';
-    prog.style.width=p.pct+'%';
-    barWrap.appendChild(prog);
-
-    // Texto no centro
+    // Texto % no centro
     const bt=document.createElement('div');
-    bt.className='bar-txt';
-    bt.style.cssText='position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;padding:0 8px;';
-    bt.textContent=(p.fase?p.fase+' · ':'')+p.pct.toFixed(0)+'%';
+    bt.style.cssText=`position:absolute;top:0;left:0;right:0;bottom:0;
+      display:flex;align-items:center;padding:0 10px;
+      font-size:10px;font-weight:700;color:#475569;font-family:'Inter','Segoe UI',sans-serif;`;
+    bt.textContent=p.pct.toFixed(0)+'% concluído';
     barWrap.appendChild(bt);
 
-    p._barEl  = barWrap;
-    p._barLp  = lpAll;
+    p._barEl = barWrap;
+    p._barLp = lpAll;
     tla.appendChild(barWrap);
   }}
+
 
   // MARCOS sobre a barra com label abaixo
   p.marcos.forEach(m=>{{
