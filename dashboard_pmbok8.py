@@ -632,47 +632,37 @@ for proj in sorted(df_view['projeto'].unique()):
             "termino": _ts(s['termino']),
         })
 
-    # Calcula segmentos de fase a partir dos marcos curados
-    def _find_marco_data(marcos_list, keywords):
-        from datetime import datetime as _dt
-        def _sort_key(x):
-            if 'data' in x:   return x['data']
-            if 'termino' in x and x['termino'] is not None: return str(x['termino'])
-            return ''
-        def _to_ms(m):
-            if 'data' in m:
-                return int(_dt.strptime(m['data'], '%Y-%m-%d').timestamp() * 1000)
-            if 'termino' in m and m['termino'] is not None:
-                return int(m['termino'])  # already ms timestamp
-            return None
-        for kw in keywords:
-            for m in sorted(marcos_list, key=_sort_key):
-                nome = (m.get('nome') or '').lower()
-                if kw.lower() in nome:
-                    return _to_ms(m)
-        return None
+    # ── Segmentos de fase curados por análise PMO PMBOK 8ª Ed. ─────────────────
+    # Datas definidas com base na análise técnica do cronograma real de cada projeto.
+    # Critério: natureza do trabalho, não % de conclusão.
+    from datetime import datetime as _dt_seg
+    def _d(s):
+        return int(_dt_seg.strptime(s, '%Y-%m-%d').timestamp() * 1000)
 
-    _kickoff_ms    = _find_marco_data(marcos, ['kick-off','kickoff','kick off'])
-    _assinatura_ms = _find_marco_data(marcos, ['assinatura','aprovação tap','aprovacao tap'])
-    _golive_ms     = _find_marco_data(marcos, ['go-live','go live','golive','ativação sku','demanda concluída'])
-    _encerra_ms    = _find_marco_data(marcos, ['encerramento'])
+    FASES_CURADAS = {
+        "Business Data Fabric": [
+            [_d("2025-12-01"), _d("2026-03-25"), "#6366F1", "Iniciação"],
+            [_d("2026-03-25"), _d("2026-06-09"), "#3B82F6", "Planejamento"],
+            [_d("2026-06-09"), _d("2026-11-30"), "#F59E0B", "Execução e Controle"],
+            [_d("2026-11-30"), _d("2026-12-11"), "#22C55E", "Encerramento"],
+        ],
+        "Cockpit Engenharia": [
+            [_d("2025-12-22"), _d("2026-01-02"), "#6366F1", "Iniciação"],
+            [_d("2026-01-02"), _d("2026-06-05"), "#3B82F6", "Planejamento"],
+            [_d("2026-06-05"), _d("2026-10-21"), "#F59E0B", "Execução e Controle"],
+            [_d("2026-10-21"), _d("2026-10-29"), "#22C55E", "Encerramento"],
+        ],
+        "Esteira Analytics": [
+            [_d("2025-12-22"), _d("2026-01-02"), "#6366F1", "Iniciação"],
+            [_d("2026-01-02"), _d("2026-03-06"), "#3B82F6", "Planejamento"],
+            [_d("2026-03-06"), _d("2026-11-30"), "#F59E0B", "Execução e Controle"],
+            [_d("2026-11-30"), _d("2026-12-31"), "#22C55E", "Encerramento"],
+        ],
+    }
 
-    _ini_ms  = _ts(r0['inicio'])
-    _fim_ms  = _ts(r0['termino'])
-    _enc_fim = _encerra_ms or _fim_ms
-
-    # Segmentos: [inicio, fim, cor, label]
-    _segs = []
-    if _kickoff_ms:
-        _segs.append([_ini_ms,        _kickoff_ms,    "#6366F1", "Iniciação"])
-        _segs.append([_kickoff_ms,    _assinatura_ms or _golive_ms or _enc_fim, "#3B82F6", "Planejamento"])
-    else:
-        _segs.append([_ini_ms,        _assinatura_ms or _golive_ms or _enc_fim, "#3B82F6", "Planejamento"])
-
-    if _assinatura_ms:
-        _segs.append([_assinatura_ms, _golive_ms or _enc_fim, "#F59E0B", "Execução e Controle"])
-    if _golive_ms:
-        _segs.append([_golive_ms,     _enc_fim,               "#22C55E", "Encerramento"])
+    _segs = FASES_CURADAS.get(proj, [
+        [_ts(r0['inicio']), _ts(r0['termino']), "#F59E0B", "Execução e Controle"]
+    ])
 
     proj_data.append({
         "projeto":  proj,
