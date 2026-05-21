@@ -441,15 +441,18 @@ else:
         else:
             cor_barra = cores_proj.get(row["Projeto"], "#1B3A6B")
 
-        label_pct = f"{row['Pct_Concluida']*100:.0f}%" if row["Pct_Concluida"] > 0 else ""
-        spi_hover = f"<br>SPI: {spi_val:.2f}" if spi_val else ""
+        label_pct  = f"{row['Pct_Concluida']*100:.0f}%" if row["Pct_Concluida"] > 0 else ""
+        nome_fase  = row["Nome da Tarefa"]
+        # Texto dentro da barra: "Nome da Fase · XX%"
+        texto_barra = f"{nome_fase}  {label_pct}".strip(" ·") if label_pct else nome_fase
+        spi_hover  = f"<br>SPI: {spi_val:.2f}" if spi_val else ""
 
         fig.add_trace(go.Bar(
             x=[dur], y=[row["Projeto"]],
             base=[row["Inicio_str"]],
             orientation="h",
             marker=dict(color=cor_barra, opacity=0.88, line=dict(width=0)),
-            text=label_pct,
+            text=texto_barra,
             textposition="inside", insidetextanchor="middle",
             textfont=dict(size=11, color="white", family="Arial"),
             hovertemplate=(
@@ -478,11 +481,16 @@ else:
             cor_m2 = "#1E7E34"; simbolo = "diamond"; label_icone = "♦"
 
         status_txt = (
-            "📅 CONCLUÍDO"  if concluido
-            else "🔴 ATRASADO" if atrasado
-            else "🔶 AGENDADO" if termino_dt > hoje_dt
+            "📅 CONCLUÍDO"   if concluido
+            else "🔴 ATRASADO"  if atrasado
+            else "🔶 AGENDADO"  if termino_dt > hoje_dt
             else "♦ NO PRAZO"
         )
+
+        # Rótulo do marco: ícone + nome curto + data
+        data_fmt  = pd.to_datetime(row["Termino_str"]).strftime("%d/%b")
+        nome_curto = row["Nome da Tarefa"][:22] + "…" if len(row["Nome da Tarefa"]) > 22 else row["Nome da Tarefa"]
+        rotulo     = f"  {label_icone} {nome_curto} ({data_fmt})"
 
         fig.add_trace(go.Scatter(
             x=[row["Termino_str"]],
@@ -490,7 +498,7 @@ else:
             mode="markers+text",
             marker=dict(symbol=simbolo, size=16, color=cor_m2,
                         line=dict(width=2, color="white")),
-            text=[f"  {label_icone} {row['Nome da Tarefa']}"],
+            text=[rotulo],
             textposition="middle right",
             textfont=dict(size=10, color=cor_m2),
             hovertemplate=(
@@ -514,16 +522,53 @@ else:
         font=dict(size=11, color="#4A90D9"),
     )
 
+    # ── Linhas de grade trimestrais ───────────────────────────────────────────
+    todas_datas = (
+        pd.to_datetime(df_gantt["Inicio_str"].tolist() + df_gantt["Termino_str"].tolist())
+    )
+    data_min = todas_datas.min() - timedelta(days=15)
+    data_max = todas_datas.max() + timedelta(days=30)
+
+    # Gera inícios de trimestre no intervalo
+    ano_ini = data_min.year
+    trimestres = []
+    for ano in range(ano_ini, data_max.year + 2):
+        for mes in [1, 4, 7, 10]:
+            dt = pd.Timestamp(year=ano, month=mes, day=1)
+            if data_min <= dt <= data_max:
+                trimestres.append(dt)
+
+    for qt in trimestres:
+        fig.add_shape(
+            type="line", xref="x", yref="paper",
+            x0=qt.strftime("%Y-%m-%d"), x1=qt.strftime("%Y-%m-%d"),
+            y0=0, y1=1,
+            line=dict(color="#E0E4EC", width=1, dash="dot"),
+        )
+        label_q = f"Q{(qt.month-1)//3+1} {qt.year}"
+        fig.add_annotation(
+            x=qt.strftime("%Y-%m-%d"), y=1.04, yref="paper",
+            text=label_q, showarrow=False, xanchor="center",
+            font=dict(size=10, color="#8A9BB5", family="Arial"),
+        )
+
     fig.update_layout(
         barmode="stack",
         plot_bgcolor="white", paper_bgcolor="white",
-        height=max(280, len(projetos_gantt) * 72 + 80),
-        margin=dict(l=10, r=180, t=30, b=40),
-        xaxis=dict(type="date", gridcolor="#F0F2F6",
-                   tickformat="%b/%y", tickfont=dict(size=11, color="#6B7A99"),
-                   showline=False),
-        yaxis=dict(autorange="reversed", showgrid=False,
-                   tickfont=dict(size=12, color="#0D1B2A")),
+        height=max(300, len(projetos_gantt) * 80 + 80),
+        margin=dict(l=10, r=200, t=45, b=40),
+        xaxis=dict(
+            type="date",
+            range=[data_min.strftime("%Y-%m-%d"), data_max.strftime("%Y-%m-%d")],
+            gridcolor="#F8F9FB",
+            tickformat="%d/%b", dtick="M1",
+            tickfont=dict(size=10, color="#B0BAD0"),
+            showline=False, zeroline=False,
+        ),
+        yaxis=dict(
+            autorange="reversed", showgrid=False,
+            tickfont=dict(size=12, color="#0D1B2A", family="Arial"),
+        ),
         hoverlabel=dict(bgcolor="white", font_size=12),
     )
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
