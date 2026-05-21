@@ -401,7 +401,7 @@ if not df_gantt.empty:
             showlegend=False,
         ))
 
-fig_gantt.add_shape(
+    fig_gantt.add_shape(
         type="line",
         x0=date.today().strftime('%Y-%m-%d'),
         x1=date.today().strftime('%Y-%m-%d'),
