@@ -242,12 +242,12 @@ def badge(spi):
 
 def idp_face(spi):
     if spi is None:
-        return "⚪", "#9AA5BE", "N/A"
+        return "", "#9AA5BE", "N/A"
     if spi >= 0.99:
-        return "😊", "#059669", "Em dia"
+        return "", "#059669", "Em dia"
     if spi >= 0.95:
-        return "😐", "#D97706", "Em alerta"
-    return "😟", "#DC2626", "Em atraso"
+        return "", "#D97706", "Em alerta"
+    return "", "#DC2626", "Em atraso"
 
 def kpi_card(label, valor, sub="", cor="#2563EB"):
     st.markdown(f"""
@@ -767,10 +767,11 @@ for proj in sorted(df_view['projeto'].unique()):
     })
 
 if proj_data:
-    hoje_ts     = int(pd.Timestamp(date.today()).normalize().value // 1_000_000)
-    proj_json   = _json.dumps(proj_data, ensure_ascii=False)
-    row_h       = 90
-    total_h     = len(proj_data) * row_h + 130
+    hoje_ts       = int(pd.Timestamp(date.today()).normalize().value // 1_000_000)
+    proj_json     = _json.dumps(proj_data, ensure_ascii=False)
+    row_h         = 90
+    total_h       = len(proj_data) * row_h + 130
+    _modo_apres_js = 'true' if _apresentando else 'false'
 
     html_roadmap = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -1120,9 +1121,10 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 </div>
 
 <script>
-const PROJECTS = {proj_json};
-const marcoTip = document.getElementById('marco-tip');
-const HOJE_MS  = {hoje_ts};
+const PROJECTS       = {proj_json};
+const marcoTip       = document.getElementById('marco-tip');
+const HOJE_MS        = {hoje_ts};
+const MODO_APRESENTAR = {_modo_apres_js};
 const ROW_H    = {row_h};
 const LABEL_W  = 200;
 
@@ -1204,10 +1206,10 @@ function idpColor(v){{
   return '#EF4444';
 }}
 function idpFace(v){{
-  if(v==null) return '⚪';
-  if(v>=0.99) return '😊';
-  if(v>=0.95) return '😐';
-  return '😟';
+  if(v==null) return '';
+  if(v>=0.99) return '';
+  if(v>=0.95) return '';
+  return '';
 }}
 
 // ── Rows ─────────────────────────────────────────────────────────────────────
@@ -1228,7 +1230,7 @@ PROJECTS.forEach((p,i)=>{{
   const idpTxt=p.idp!=null?p.idp.toFixed(2):'N/A';
   lbl.innerHTML=`
     <div class="pname" title="${{p.projeto}}">${{p.projeto.length>22?p.projeto.slice(0,22)+'…':p.projeto}}</div>
-    <div class="pidp" style="color:${{idpC}}">${{idpFace(p.idp)}} IDP ${{idpTxt}}</div>`;
+    <div class="pidp" style="color:${{idpC}}">IDP ${{idpTxt}}</div>`;
   row.appendChild(lbl);
 
   // Timeline area
@@ -1385,6 +1387,7 @@ PROJECTS.forEach((p,i)=>{{
   addBtn.className='add-marco-btn';
   addBtn.textContent='➕';
   addBtn.title='Adicionar novo marco para '+p.projeto;
+  if(MODO_APRESENTAR) addBtn.style.display='none';
   addBtn.addEventListener('click', e=>{{
     e.stopPropagation();
     marcoTip.classList.remove('show');
