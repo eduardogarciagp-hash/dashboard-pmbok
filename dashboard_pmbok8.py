@@ -514,9 +514,13 @@ for i, (proj, idp_val) in enumerate(idp_por_projeto_final.items()):
         st.markdown(f"""
 <div style='background:#fff;border-radius:10px;padding:10px 16px 8px 16px;
             border-left:5px solid {cor_face};box-shadow:0 1px 6px rgba(0,0,0,.08);
-            text-align:center;margin-top:12px;'>
-  <div style='font-size:28px;font-weight:700;color:{cor_face};margin:4px 0 2px 0;line-height:1.1;'>IDP {idp_txt}</div>
-  <div style='font-size:12px;color:{cor_face};font-weight:600;'>{label_face}</div>
+            display:flex;align-items:center;gap:14px;margin-top:12px;'>
+  <div style='font-size:11px;font-weight:700;color:#9AA5BE;text-transform:uppercase;
+              letter-spacing:.06em;flex:1;line-height:1.3;'>{proj}</div>
+  <div style='text-align:right;'>
+    <div style='font-size:28px;font-weight:700;color:{cor_face};line-height:1.1;'>IDP {idp_txt}</div>
+    <div style='font-size:12px;color:{cor_face};font-weight:600;'>{label_face}</div>
+  </div>
 </div>""", unsafe_allow_html=True)
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
 
