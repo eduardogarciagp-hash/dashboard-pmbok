@@ -221,11 +221,20 @@ Responda SOMENTE em JSON válido, sem markdown, no formato:
 def badge(spi):
     if spi is None:
         return '<span class="badge-yellow">N/A</span>'
+    if spi >= 0.99:
+        return f'<span class="badge-green">IDP {spi:.2f} ▲</span>'
     if spi >= 0.95:
-        return f'<span class="badge-green">SPI {spi:.2f} ▲</span>'
-    if spi >= 0.80:
-        return f'<span class="badge-yellow">SPI {spi:.2f} !</span>'
-    return f'<span class="badge-red">SPI {spi:.2f} ▼</span>'
+        return f'<span class="badge-yellow">IDP {spi:.2f} !</span>'
+    return f'<span class="badge-red">IDP {spi:.2f} ▼</span>'
+
+def idp_face(spi):
+    if spi is None:
+        return "⚪", "#9AA5BE", "N/A"
+    if spi >= 0.99:
+        return "😊", "#059669", "Em dia"
+    if spi >= 0.95:
+        return "😐", "#D97706", "Em alerta"
+    return "😟", "#DC2626", "Em atraso"
 
 def kpi_card(label, valor, sub="", cor="#2563EB"):
     st.markdown(f"""
@@ -332,11 +341,34 @@ c1, c2, c3, c4, c5 = st.columns(5)
 with c1: kpi_card("PROJETOS ATIVOS", str(n_projetos), "monitorados", "#2563EB")
 with c2: kpi_card("CONCLUSÃO MÉDIA", f"{pct_media:.1f}%", "do portfólio", "#059669")
 with c3:
-    spi_str = f"{spi_medio:.3f}" if spi_medio else "N/A"
-    cor3 = "#DC2626" if (spi_medio and spi_medio < 0.90) else ("#F59E0B" if (spi_medio and spi_medio < 0.95) else "#059669")
-    kpi_card("SPI PORTFÓLIO", spi_str, "índice de desempenho", cor3)
-with c4: kpi_card("PROJETOS CRÍTICOS", str(crits_count), f"com SPI < {spi_limiar}", "#DC2626")
+    spi_str = f"{spi_medio:.2f}" if spi_medio else "N/A"
+    cor3 = "#DC2626" if (spi_medio and spi_medio < 0.95) else ("#D97706" if (spi_medio and spi_medio < 0.99) else "#059669")
+    kpi_card("IDP PORTFÓLIO", spi_str, "índice de desempenho", cor3)
+with c4: kpi_card("PROJETOS CRÍTICOS", str(crits_count), f"com IDP < {spi_limiar}", "#DC2626")
 with c5: kpi_card("MARCOS NO PORTFÓLIO", str(marcos_tot), "identificados", "#7C3AED")
+
+# ── Linha de IDP por projeto com carinhas ────────────────────────────────────
+if not df_root.empty:
+    projetos_idp = df_root[["projeto","spi_num"]].dropna(subset=["spi_num"]).drop_duplicates("projeto")
+    if not projetos_idp.empty:
+        cols_idp = st.columns(len(projetos_idp))
+        for i, (_, r) in enumerate(projetos_idp.iterrows()):
+            face, cor_face, label_face = idp_face(r["spi_num"])
+            with cols_idp[i]:
+                st.markdown(f"""
+<div style="background:#fff;border-radius:10px;padding:12px 16px;
+            border-left:5px solid {cor_face};box-shadow:0 1px 6px rgba(0,0,0,.08);
+            text-align:center;margin-top:8px;">
+  <div style="font-size:10px;font-weight:600;color:#9AA5BE;
+              text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">
+    {r["projeto"]}
+  </div>
+  <div style="font-size:28px;line-height:1.1;">{face}</div>
+  <div style="font-size:20px;font-weight:700;color:{cor_face};margin:2px 0;">
+    IDP {r["spi_num"]:.2f}
+  </div>
+  <div style="font-size:11px;color:{cor_face};font-weight:600;">{label_face}</div>
+</div>""", unsafe_allow_html=True)
 
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
 
