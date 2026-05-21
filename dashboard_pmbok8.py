@@ -1670,79 +1670,95 @@ for proj in projetos_gov:
     with st.expander(label_exp, expanded=False):
 
         linhas = st.session_state.gov_data[k]
-        to_delete = []
+        modo_edicao = st.session_state.get(f"edit_mode_{k}", False)
 
-        for idx, linha in enumerate(linhas):
-            # Separador visual entre linhas
-            if idx > 0:
-                st.markdown("<hr style='border:1px dashed #E2E8F0;margin:10px 0'>", unsafe_allow_html=True)
+        # ── MODO LEITURA (padrão executivo) ──────────────────────────────────
+        if not modo_edicao:
+            for idx, linha in enumerate(linhas):
+                titulo  = linha.get("titulo", "") or f"Ponto Crítico {idx+1}"
+                impacto = linha.get("impacto", "")
+                causa   = linha.get("causa", "")
+                plano   = linha.get("plano", "")
+                # Só exibe linhas com conteúdo
+                if not any([impacto, causa, plano]): continue
+                if idx > 0:
+                    st.markdown("<hr style='border:1px solid #F0F2F6;margin:14px 0'>", unsafe_allow_html=True)
+                st.markdown(f"**{titulo}**", unsafe_allow_html=False)
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.markdown(f"<div style='font-size:10px;font-weight:700;color:#9AA5BE;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px'>📌 Impacto no Negócio</div><div style='font-size:13px;color:#1B2A4A;line-height:1.6'>{impacto or '—'}</div>", unsafe_allow_html=True)
+                with c2:
+                    st.markdown(f"<div style='font-size:10px;font-weight:700;color:#9AA5BE;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px'>🔍 Causa Raiz</div><div style='font-size:13px;color:#1B2A4A;line-height:1.6'>{causa or '—'}</div>", unsafe_allow_html=True)
+                with c3:
+                    st.markdown(f"<div style='font-size:10px;font-weight:700;color:#9AA5BE;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px'>✅ Plano de Ação</div><div style='font-size:13px;color:#1B2A4A;line-height:1.6'>{plano or '—'}</div>", unsafe_allow_html=True)
 
-            # Título da linha + botão excluir
-            col_titulo, col_del = st.columns([9, 1])
-            with col_titulo:
-                linhas[idx]["titulo"] = st.text_input(
-                    f"Ponto crítico {idx + 1}",
-                    value=linhas[idx].get("titulo", ""),
-                    placeholder=f"Nome do ponto crítico {idx + 1}...",
-                    key=f"titulo_{k}_{idx}",
-                    label_visibility="collapsed",
-                )
-            with col_del:
-                if st.button("🗑️", key=f"del_{k}_{idx}", help="Remover esta linha"):
-                    to_delete.append(idx)
+            st.markdown("")
+            if st.button("✏️ Editar", key=f"btn_edit_{k}"):
+                st.session_state[f"edit_mode_{k}"] = True
+                st.rerun()
 
-            # 3 campos de conteúdo — altura automática baseada no texto
-            def _auto_h(txt, min_h=120, chars_per_line=52, line_h=20, pad=40):
+        # ── MODO EDIÇÃO ───────────────────────────────────────────────────────
+        else:
+            to_delete = []
+
+            def _auto_h(txt, min_h=100, chars_per_line=52, line_h=20, pad=40):
                 if not txt: return min_h
-                lines = 0
-                for para in txt.split('\n'):
-                    lines += max(1, (len(para) // chars_per_line) + 1)
+                lines = sum(max(1, (len(p)//chars_per_line)+1) for p in txt.split('\n'))
                 return max(min_h, lines * line_h + pad)
 
-            _h_imp = _auto_h(linhas[idx].get("impacto",""))
-            _h_cau = _auto_h(linhas[idx].get("causa",""))
-            _h_pla = _auto_h(linhas[idx].get("plano",""))
-            _h_max = max(_h_imp, _h_cau, _h_pla)  # todas com mesma altura
+            for idx, linha in enumerate(linhas):
+                if idx > 0:
+                    st.markdown("<hr style='border:1px dashed #E2E8F0;margin:10px 0'>", unsafe_allow_html=True)
 
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                linhas[idx]["impacto"] = st.text_area(
-                    "📌 Impacto no Negócio",
-                    value=linhas[idx].get("impacto", ""),
-                    height=_h_max,
-                    placeholder="Descreva o impacto no negócio...",
-                    key=f"impacto_{k}_{idx}",
-                )
-            with c2:
-                linhas[idx]["causa"] = st.text_area(
-                    "🔍 Causa Raiz (Hipótese)",
-                    value=linhas[idx].get("causa", ""),
-                    height=_h_max,
-                    placeholder="Descreva a causa raiz identificada...",
-                    key=f"causa_{k}_{idx}",
-                )
-            with c3:
-                linhas[idx]["plano"] = st.text_area(
-                    "✅ Plano de Ação",
-                    value=linhas[idx].get("plano", ""),
-                    height=_h_max,
-                    placeholder="Ações, responsáveis e prazo...",
-                    key=f"plano_{k}_{idx}",
-                )
+                col_titulo, col_del = st.columns([9, 1])
+                with col_titulo:
+                    linhas[idx]["titulo"] = st.text_input(
+                        f"Ponto crítico {idx+1}",
+                        value=linhas[idx].get("titulo", ""),
+                        placeholder=f"Nome do ponto crítico {idx+1}...",
+                        key=f"titulo_{k}_{idx}",
+                        label_visibility="collapsed",
+                    )
+                with col_del:
+                    if st.button("🗑️", key=f"del_{k}_{idx}", help="Remover"):
+                        to_delete.append(idx)
 
-        # Aplica exclusões (de trás para frente para não deslocar índices)
-        for idx in sorted(to_delete, reverse=True):
-            if len(linhas) > 1:   # mantém pelo menos 1 linha
-                linhas.pop(idx)
-        st.session_state.gov_data[k] = linhas
+                _hmax = max(
+                    _auto_h(linhas[idx].get("impacto","")),
+                    _auto_h(linhas[idx].get("causa","")),
+                    _auto_h(linhas[idx].get("plano","")),
+                )
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    linhas[idx]["impacto"] = st.text_area("📌 Impacto no Negócio",
+                        value=linhas[idx].get("impacto",""), height=_hmax,
+                        placeholder="Descreva o impacto no negócio...",
+                        key=f"impacto_{k}_{idx}")
+                with c2:
+                    linhas[idx]["causa"] = st.text_area("🔍 Causa Raiz (Hipótese)",
+                        value=linhas[idx].get("causa",""), height=_hmax,
+                        placeholder="Descreva a causa raiz identificada...",
+                        key=f"causa_{k}_{idx}")
+                with c3:
+                    linhas[idx]["plano"] = st.text_area("✅ Plano de Ação",
+                        value=linhas[idx].get("plano",""), height=_hmax,
+                        placeholder="Ações, responsáveis e prazo...",
+                        key=f"plano_{k}_{idx}")
 
-        # Botão adicionar nova linha
-        st.markdown("")
-        if st.button(f"➕ Adicionar ponto crítico", key=f"add_{k}"):
-            st.session_state.gov_data[k].append(
-                {"titulo": "", "impacto": "", "causa": "", "plano": ""}
-            )
-            st.rerun()
+            for idx in sorted(to_delete, reverse=True):
+                if len(linhas) > 1:
+                    linhas.pop(idx)
+            st.session_state.gov_data[k] = linhas
+
+            col_add, col_save = st.columns([1, 1])
+            with col_add:
+                if st.button("➕ Adicionar ponto crítico", key=f"add_{k}"):
+                    st.session_state.gov_data[k].append({"titulo":"","impacto":"","causa":"","plano":""})
+                    st.rerun()
+            with col_save:
+                if st.button("✅ Concluir edição", key=f"btn_save_{k}", type="primary"):
+                    st.session_state[f"edit_mode_{k}"] = False
+                    st.rerun()
 
 # 12. EXPORTAR RELATÓRIO
 # ──────────────────────────────────────────────────────────────────────────────
