@@ -481,13 +481,69 @@ for proj in sorted(df_view['projeto'].unique()):
     else:
         bar_cor = "#22C55E"   # Encerramento
 
-    # Marcos deste projeto: tarefas com is_milestone=True OU nível<=2 com datas
-    # Prioriza milestones reais; se não houver, usa as subfases L2 como marcos visuais
-    df_miles = df_p[
-        df_p['is_milestone'] &
+    # ── Identificação de Marcos — critério técnico PMBOK 8ª Edição ─────────────
+    # Um marco é um evento significativo sem duração que representa:
+    # conclusão de entrega, decisão crítica ou transição de fase.
+    #
+    # Critérios (qualquer um satisfeito):
+    #   1. Campo Milestone=1 do MS Project
+    #   2. Duração <= 8h e não é tarefa resumo (evento pontual de 1 dia)
+    #   3. Nome contém palavras-chave de entrega/decisão
+    #   4. L2 com duração exatamente 8h e não resumo (evento de fase)
+
+    KEYWORDS_MARCO = [
+        'kick-off', 'kickoff', 'go-live', 'go live', 'golive',
+        'assinatura', 'encerramento', 'aprovação', 'aprovacao',
+        'publicação', 'publicacao', 'cutover', 'go live',
+        'demanda concluída', 'demanda concluida',
+        'validação técnica', 'validacao tecnica',
+        'entrega q1', 'entrega q2', 'entrega q3', 'entrega q4',
+        'entregas q1', 'entregas q2', 'entregas q3', 'entregas q4',
+        'definição entregas', 'definicao entregas',
+        'conclusão', 'conclusao', 'ativação sku', 'ativacao sku',
+        'quality gate', 'reunião de encerramento', 'reuniao de encerramento',
+    ]
+
+    def _is_marco(row):
+        nome_lower = (row['nome'] or '').lower()
+        # Critério 1: flag nativa do MS Project
+        if row.get('is_milestone'):
+            return True
+        # Critério 2: duração <= 8h e não é resumo
+        if not row.get('is_summary') and row.get('dur_h', 99) <= 8:
+            return True
+        # Critério 3: palavras-chave semânticas
+        if any(kw in nome_lower for kw in KEYWORDS_MARCO):
+            return True
+        # Critério 4: L2 exatamente 8h e não resumo
+        if row.get('nivel') == 2 and not row.get('is_summary') and row.get('dur_h') == 8:
+            return True
+        return False
+
+    # Precisamos da coluna dur_h — calcular a partir da duração bruta do XML
+    # Como df_view não tem dur_h, recalculamos via parse do campo Duration
+    # Buscamos todas as tarefas candidatas e aplicamos os critérios
+    import re as _re
+
+    df_cands = df_p[
         df_p['termino'].notna() &
         (~df_p['nome'].isin(SKIP_NAMES))
-    ]
+    ].copy()
+
+    # Adiciona dur_h temporário a partir do campo duration_raw se existir,
+    # senão usa heurística: início == término → 8h
+    def _dur_h(row):
+        # Se início == término, assume evento 1 dia = 8h
+        if pd.notna(row['inicio']) and pd.notna(row['termino']):
+            if row['inicio'].date() == row['termino'].date():
+                return 8
+        return 999  # duração longa = não é pontual
+
+    df_cands['dur_h']    = df_cands.apply(_dur_h, axis=1)
+    df_cands['is_marco'] = df_cands.apply(_is_marco, axis=1)
+    df_miles = df_cands[df_cands['is_marco']].copy()
+
+    # Se não encontrou nada, fallback: usar L2 resumos como referência de fase
     if df_miles.empty:
         df_miles = df_p[
             (df_p['nivel'] == 2) &
