@@ -290,8 +290,9 @@ with st.sidebar:
     st.markdown('---')
 
     # ── Edição de IDPs por projeto ────────────────────────────────────────────
-    st.markdown('### ✏️ Editar IDPs por Projeto')
-    st.caption('Altere os valores abaixo para recalcular os KPIs.')
+    if not st.session_state.get('modo_apresentacao', False):
+        st.markdown('### ✏️ Editar IDPs por Projeto')
+        st.caption('Altere os valores abaixo para recalcular os KPIs.')
     if 'idp_override' not in st.session_state:
         st.session_state.idp_override = {}
     _sb_idp_override = {}
@@ -338,13 +339,37 @@ else:
 # ──────────────────────────────────────────────────────────────────────────────
 # 7. CABEÇALHO
 # ──────────────────────────────────────────────────────────────────────────────
-st.markdown(
-    f"<h1 style='color:#1B2A4A;font-size:24px;font-weight:700;margin-bottom:2px'>"
-    f"Dashboard Executivo - Digital</h1>"
-    f"<p style='color:#9AA5BE;font-size:12px'>PMBOK 8ª Ed. · Referência: "
-    f"{data_ref.strftime('%d/%m/%Y')} · {len(projetos_disp)} projeto(s) carregado(s)</p>",
-    unsafe_allow_html=True,
-)
+# ── Modo Apresentação ────────────────────────────────────────────────────────
+if 'modo_apresentacao' not in st.session_state:
+    st.session_state.modo_apresentacao = False
+
+col_titulo, col_btn_apres = st.columns([8, 1])
+with col_titulo:
+    st.markdown(
+        f"<h1 style='color:#1B2A4A;font-size:24px;font-weight:700;margin-bottom:2px'>"
+        f"Dashboard Executivo - Digital</h1>"
+        f"<p style='color:#9AA5BE;font-size:12px'>PMBOK 8ª Ed. · Referência: "
+        f"{data_ref.strftime('%d/%m/%Y')} · {len(projetos_disp)} projeto(s) carregado(s)</p>",
+        unsafe_allow_html=True,
+    )
+with col_btn_apres:
+    st.markdown("<div style='margin-top:10px'>", unsafe_allow_html=True)
+    if st.session_state.modo_apresentacao:
+        if st.button("⚙️ Modo Edição", use_container_width=True):
+            st.session_state.modo_apresentacao = False
+            st.rerun()
+    else:
+        if st.button("🎯 Apresentar", use_container_width=True, type="primary"):
+            st.session_state.modo_apresentacao = True
+            # Fecha todos os modos de edição da Section C
+            for _k in list(st.session_state.keys()):
+                if _k.startswith("edit_mode_"):
+                    st.session_state[_k] = False
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+_apresentando = st.session_state.modo_apresentacao
+
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
 
 if df_view.empty:
@@ -384,18 +409,23 @@ spi_medio_calc = round(sum(_vals) / len(_vals), 4) if _vals else None
 if 'idp_override' not in st.session_state:
     st.session_state.idp_override = {}
 
-# Renderiza inputs no sidebar via placeholder
+# Renderiza inputs no sidebar via placeholder (oculto no modo apresentação)
 idp_por_projeto_final = {}
 with _sb_idp_placeholder.container():
-    for proj, idp_calc in idp_por_projeto.items():
-        idp_editado = st.number_input(
-            proj[:28],
-            value=float(st.session_state.idp_override.get(proj, idp_calc or 0.0)),
-            step=0.01, format='%.2f',
-            key=f'idp_input_{proj}'
-        )
-        st.session_state.idp_override[proj] = idp_editado
-        idp_por_projeto_final[proj] = idp_editado
+    if not st.session_state.get('modo_apresentacao', False):
+        for proj, idp_calc in idp_por_projeto.items():
+            idp_editado = st.number_input(
+                proj[:28],
+                value=float(st.session_state.idp_override.get(proj, idp_calc or 0.0)),
+                step=0.01, format='%.2f',
+                key=f'idp_input_{proj}'
+            )
+            st.session_state.idp_override[proj] = idp_editado
+            idp_por_projeto_final[proj] = idp_editado
+    else:
+        # Modo apresentação: usa valores salvos sem mostrar inputs
+        for proj, idp_calc in idp_por_projeto.items():
+            idp_por_projeto_final[proj] = float(st.session_state.idp_override.get(proj, idp_calc or 0.0))
 
 
 # KPIs recalculados a partir dos IDPs editados
@@ -1670,7 +1700,7 @@ for proj in projetos_gov:
     with st.expander(label_exp, expanded=False):
 
         linhas = st.session_state.gov_data[k]
-        modo_edicao = st.session_state.get(f"edit_mode_{k}", False)
+        modo_edicao = st.session_state.get(f"edit_mode_{k}", False) and not _apresentando
 
         # ── MODO LEITURA (padrão executivo) ──────────────────────────────────
         if not modo_edicao:
@@ -1693,9 +1723,10 @@ for proj in projetos_gov:
                     st.markdown(f"<div style='font-size:10px;font-weight:700;color:#9AA5BE;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px'>✅ Plano de Ação</div><div style='font-size:13px;color:#1B2A4A;line-height:1.6'>{plano or '—'}</div>", unsafe_allow_html=True)
 
             st.markdown("")
-            if st.button("✏️ Editar", key=f"btn_edit_{k}"):
-                st.session_state[f"edit_mode_{k}"] = True
-                st.rerun()
+            if not _apresentando:
+                if st.button("✏️ Editar", key=f"btn_edit_{k}"):
+                    st.session_state[f"edit_mode_{k}"] = True
+                    st.rerun()
 
         # ── MODO EDIÇÃO ───────────────────────────────────────────────────────
         else:
