@@ -1086,6 +1086,9 @@ PROJECTS.forEach((p,i)=>{{
 
       bar.addEventListener('click', ()=>openModal(p));
       bar.title='Clique para ver detalhes';
+      // Guarda referência para atualizar largura quando marcos forem adicionados
+      p._barEl  = bar;
+      p._barLp  = lp;
       tla.appendChild(bar);
     }}
   }}
@@ -1352,6 +1355,17 @@ function saveEditModal(){{
       concluido:concluido, atrasado:!!atrasado
     }};
     ctxTargetProj.marcos.push(novoMarco);
+
+    // Atualiza a barra do projeto se o novo marco ultrapassar o término atual
+    if(termMs!=null && ctxTargetProj._barEl){{
+      let newBarEnd = ctxTargetProj.termino;
+      ctxTargetProj.marcos.forEach(m=>{{
+        if(m.termino!=null && m.termino > newBarEnd) newBarEnd = m.termino;
+      }});
+      const newRp = Math.min(100, d2p(newBarEnd));
+      const newWp = newRp - ctxTargetProj._barLp;
+      if(newWp > 0.05) ctxTargetProj._barEl.style.width = newWp + '%';
+    }}
 
     const tla=editOverlay._tla;
     if(tla&&termMs!=null){{
