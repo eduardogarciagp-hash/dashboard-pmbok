@@ -439,7 +439,7 @@ st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
 # ──────────────────────────────────────────────────────────────────────────────
 import streamlit.components.v1 as components
 
-st.markdown('<div class="section-title">Roadmap Executivo & Marcos de Valor</div>',
+st.markdown('<div class="section-title">B. Roadmap Executivo & Marcos de Valor</div>',
             unsafe_allow_html=True)
 
 # ── Coleta dados por projeto ──────────────────────────────────────────────────
