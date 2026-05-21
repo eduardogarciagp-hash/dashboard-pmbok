@@ -632,6 +632,37 @@ for proj in sorted(df_view['projeto'].unique()):
             "termino": _ts(s['termino']),
         })
 
+    # Calcula segmentos de fase a partir dos marcos curados
+    def _find_marco_data(marcos_list, keywords):
+        for kw in keywords:
+            for m in sorted(marcos_list, key=lambda x: x['data']):
+                if kw.lower() in m['nome'].lower():
+                    from datetime import datetime as _dt
+                    return int(_dt.strptime(m['data'], '%Y-%m-%d').timestamp() * 1000)
+        return None
+
+    _kickoff_ms    = _find_marco_data(marcos, ['kick-off','kickoff','kick off'])
+    _assinatura_ms = _find_marco_data(marcos, ['assinatura','aprovação tap','aprovacao tap'])
+    _golive_ms     = _find_marco_data(marcos, ['go-live','go live','golive','ativação sku','demanda concluída'])
+    _encerra_ms    = _find_marco_data(marcos, ['encerramento'])
+
+    _ini_ms  = _ts(r0['inicio'])
+    _fim_ms  = _ts(r0['termino'])
+    _enc_fim = _encerra_ms or _fim_ms
+
+    # Segmentos: [inicio, fim, cor, label]
+    _segs = []
+    if _kickoff_ms:
+        _segs.append([_ini_ms,        _kickoff_ms,    "#6366F1", "Iniciação"])
+        _segs.append([_kickoff_ms,    _assinatura_ms or _golive_ms or _enc_fim, "#3B82F6", "Planejamento"])
+    else:
+        _segs.append([_ini_ms,        _assinatura_ms or _golive_ms or _enc_fim, "#3B82F6", "Planejamento"])
+
+    if _assinatura_ms:
+        _segs.append([_assinatura_ms, _golive_ms or _enc_fim, "#F59E0B", "Execução e Controle"])
+    if _golive_ms:
+        _segs.append([_golive_ms,     _enc_fim,               "#22C55E", "Encerramento"])
+
     proj_data.append({
         "projeto":  proj,
         "inicio":   _ts(r0['inicio']),
@@ -641,6 +672,7 @@ for proj in sorted(df_view['projeto'].unique()):
         "idp":      idp_val,
         "cor":      bar_cor,
         "fase":     fase_nome,
+        "segs":     _segs,
         "marcos":   marcos,
         "subfases": subfases,
     })
@@ -1114,40 +1146,57 @@ PROJECTS.forEach((p,i)=>{{
   const tla=document.createElement('div');
   tla.className='tl-area';
 
-  // BAR — estende até o marco mais distante se ele ultrapassar o término do projeto
+  // BAR SEGMENTADA — uma faixa por fase PMBOK, extensível por marcos
   if(p.inicio!=null&&p.termino!=null){{
-    // Calcula o fim real: término do projeto ou data do marco mais distante
+    // Fim real da barra = término do projeto ou marco mais distante
     let barEndMs = p.termino;
-    if(p.marcos&&p.marcos.length>0){{
-      p.marcos.forEach(m=>{{
-        if(m.termino!=null && m.termino > barEndMs) barEndMs = m.termino;
-      }});
-    }}
-    const x0=d2p(p.inicio), x1=d2p(barEndMs);
-    const lp=Math.max(0,x0), rp=Math.min(100,x1), wp=rp-lp;
-    if(wp>0.05){{
-      const bar=document.createElement('div');
-      bar.className='bar';
-      bar.style.left=`${{lp}}%`; bar.style.width=`${{wp}}%`;
-      bar.style.height='32px'; bar.style.top='16px';
-      bar.style.background=p.cor; bar.style.opacity='0.85';
+    if(p.marcos&&p.marcos.length>0)
+      p.marcos.forEach(m=>{{ if(m.termino!=null&&m.termino>barEndMs) barEndMs=m.termino; }});
 
-      const prog=document.createElement('div');
-      prog.className='bar-progress'; prog.style.width=p.pct+'%';
-      bar.appendChild(prog);
+    // Container invisível que cobre toda a extensão
+    const barWrap=document.createElement('div');
+    barWrap.style.cssText='position:absolute;top:16px;height:32px;border-radius:5px;overflow:hidden;cursor:pointer;';
+    const x0all=d2p(p.inicio), x1all=d2p(barEndMs);
+    const lpAll=Math.max(0,x0all), rpAll=Math.min(100,x1all);
+    barWrap.style.left=lpAll+'%'; barWrap.style.width=(rpAll-lpAll)+'%';
+    barWrap.addEventListener('click',()=>openModal(p));
+    barWrap.title='Clique para detalhes';
 
-      const bt=document.createElement('div');
-      bt.className='bar-txt';
-      bt.textContent=(p.fase?p.fase+' · ':'')+p.pct.toFixed(0)+'% concluído';
-      bar.appendChild(bt);
+    // Render cada segmento de fase
+    const segs = p.segs && p.segs.length>0 ? p.segs : [[p.inicio,p.termino,p.cor,p.fase||'']];
+    segs.forEach(seg=>{{
+      const [sIni,sFim,sCor,sLabel]=seg;
+      if(sIni==null||sFim==null) return;
+      const sx0=d2p(sIni), sx1=d2p(sFim);
+      const slp=Math.max(0,sx0), srp=Math.min(100,sx1), swp=srp-slp;
+      if(swp<0.05) return;
 
-      bar.addEventListener('click', ()=>openModal(p));
-      bar.title='Clique para ver detalhes';
-      // Guarda referência para atualizar largura quando marcos forem adicionados
-      p._barEl  = bar;
-      p._barLp  = lp;
-      tla.appendChild(bar);
-    }}
+      // Converter coordenadas absolutas em % relativa ao barWrap
+      const wrapW = rpAll - lpAll;
+      const relL  = ((slp - lpAll) / wrapW * 100).toFixed(3)+'%';
+      const relW  = (swp / wrapW * 100).toFixed(3)+'%';
+
+      const seg_el=document.createElement('div');
+      seg_el.style.cssText=`position:absolute;top:0;bottom:0;left:${{relL}};width:${{relW}};background:${{sCor}};opacity:.88;`;
+      barWrap.appendChild(seg_el);
+    }});
+
+    // Barra de progresso sobreposta (branca translúcida)
+    const prog=document.createElement('div');
+    prog.style.cssText='position:absolute;top:0;left:0;bottom:0;background:rgba(255,255,255,.15);pointer-events:none;border-radius:5px 0 0 5px;';
+    prog.style.width=p.pct+'%';
+    barWrap.appendChild(prog);
+
+    // Texto no centro
+    const bt=document.createElement('div');
+    bt.className='bar-txt';
+    bt.style.cssText='position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;padding:0 8px;';
+    bt.textContent=(p.fase?p.fase+' · ':'')+p.pct.toFixed(0)+'%';
+    barWrap.appendChild(bt);
+
+    p._barEl  = barWrap;
+    p._barLp  = lpAll;
+    tla.appendChild(barWrap);
   }}
 
   // MARCOS sobre a barra com label abaixo
