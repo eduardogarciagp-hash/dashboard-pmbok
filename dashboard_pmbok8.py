@@ -643,6 +643,24 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 /* TIMELINE AREA */
 .tl-area{{position:relative;flex:1;height:100%;}}
 
+/* BOTÃO NOVO MARCO */
+.add-marco-btn{{
+  flex-shrink:0;width:28px;height:28px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(59,130,246,.12);
+  border:1px dashed rgba(59,130,246,.35);
+  border-radius:7px;cursor:pointer;
+  font-size:15px;color:#3B82F6;
+  margin:auto 8px auto 6px;
+  transition:background .15s,border-color .15s,transform .15s;
+  user-select:none;flex-shrink:0;
+}}
+.add-marco-btn:hover{{
+  background:rgba(59,130,246,.25);
+  border-color:#3B82F6;
+  transform:scale(1.12);
+}}
+
 /* BAR */
 .bar{{
   position:absolute;border-radius:5px;cursor:pointer;overflow:hidden;
@@ -1156,6 +1174,36 @@ PROJECTS.forEach((p,i)=>{{
   }});
 
   row.appendChild(tla);
+
+  // ── Botão ➕ novo marco ────────────────────────────────────────────────────
+  const addBtn=document.createElement('div');
+  addBtn.className='add-marco-btn';
+  addBtn.textContent='➕';
+  addBtn.title='Adicionar novo marco para '+p.projeto;
+  addBtn.addEventListener('click', e=>{{
+    e.stopPropagation();
+    marcoTip.classList.remove('show');
+    // Abre modal de edição em modo "Novo Marco"
+    ctxTargetMarco = null;   // null = modo criação
+    ctxTargetProj  = p;
+    ctxTargetWrap  = null;
+    document.getElementById('edit-diamond').style.background='#3B82F6';
+    document.getElementById('edit-nome').value='';
+    // Sugere data de término do projeto como padrão
+    const dt=p.termino?new Date(p.termino):new Date();
+    document.getElementById('edit-data').value=
+      dt.getUTCFullYear()+'-'+
+      String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+
+      String(dt.getUTCDate()).padStart(2,'0');
+    document.getElementById('edit-pct').value='0';
+    document.getElementById('edit-modal').querySelector('h3').innerHTML=
+      '<span id="edit-diamond" style="width:12px;height:12px;transform:rotate(45deg);border-radius:2px;display:inline-block;background:#3B82F6;flex-shrink:0;"></span> Novo Marco — '+p.projeto;
+    editOverlay.classList.add('open');
+    // Store tla so we can append the new wrap after save
+    editOverlay._tla = tla;
+  }});
+  row.appendChild(addBtn);
+
   body.appendChild(row);
 }});
 
@@ -1260,34 +1308,92 @@ function closeEditModal(){{ editOverlay.classList.remove('open'); }}
 editOverlay.addEventListener('click', e=>{{ if(e.target===editOverlay) closeEditModal(); }});
 
 function saveEditModal(){{
-  if(!ctxTargetMarco||!ctxTargetWrap) return;
-  const novoNome = document.getElementById('edit-nome').value.trim()||ctxTargetMarco.nome;
+  const novoNome = document.getElementById('edit-nome').value.trim();
   const novaData = document.getElementById('edit-data').value;
   const novoPct  = parseInt(document.getElementById('edit-pct').value)||0;
+  if(!novoNome) {{ closeEditModal(); return; }}
 
-  // Update data object
-  ctxTargetMarco.nome=novoNome;
-  ctxTargetMarco.pct=novoPct;
+  let termMs = null;
   if(novaData){{
     const [y,mo,d]=novaData.split('-').map(Number);
-    ctxTargetMarco.termino=Date.UTC(y,mo-1,d);
+    termMs=Date.UTC(y,mo-1,d);
   }}
-  ctxTargetMarco.concluido=novoPct>=100;
-  ctxTargetMarco.atrasado=(!ctxTargetMarco.concluido)&&(ctxTargetMarco.termino<Date.now());
+  const concluido=novoPct>=100;
+  const atrasado=(!concluido)&&termMs&&(termMs<Date.now());
 
-  // Update diamond color
-  const newCls='marco '+(ctxTargetMarco.concluido?'done':ctxTargetMarco.atrasado?'late':'ok');
-  const diamond=ctxTargetWrap.querySelector('.marco');
-  if(diamond) diamond.className=newCls;
+  if(ctxTargetMarco && ctxTargetWrap){{
+    // ── MODO EDIÇÃO ──────────────────────────────────────────────────────────
+    ctxTargetMarco.nome=novoNome;
+    ctxTargetMarco.pct=novoPct;
+    if(termMs) ctxTargetMarco.termino=termMs;
+    ctxTargetMarco.concluido=concluido;
+    ctxTargetMarco.atrasado=!!atrasado;
 
-  // Update label text
-  const lbl=ctxTargetWrap.querySelector('.marco-lbl');
-  if(lbl) lbl.textContent=novoNome;
+    const newCls='marco '+(concluido?'done':atrasado?'late':'ok');
+    const diamond=ctxTargetWrap.querySelector('.marco');
+    if(diamond) diamond.className=newCls;
+    const lbl=ctxTargetWrap.querySelector('.marco-lbl');
+    if(lbl) lbl.textContent=novoNome;
+    const xp=d2p(ctxTargetMarco.termino);
+    if(xp>=0&&xp<=100) ctxTargetWrap.style.left=xp+'%';
 
-  // Reposition wrap
-  const newXp=d2p(ctxTargetMarco.termino);
-  if(newXp>=0&&newXp<=100) ctxTargetWrap.style.left=newXp+'%';
+  }} else if(ctxTargetProj){{
+    // ── MODO CRIAÇÃO ─────────────────────────────────────────────────────────
+    const novoMarco={{
+      nome:novoNome, termino:termMs, baseline:null,
+      pct:novoPct, status:'', resp:'', nivel:2,
+      concluido:concluido, atrasado:!!atrasado
+    }};
+    ctxTargetProj.marcos.push(novoMarco);
 
+    const tla=editOverlay._tla;
+    if(tla&&termMs!=null){{
+      const xp=d2p(termMs);
+      if(xp>=0&&xp<=100){{
+        const mc2=concluido?'#22C55E':atrasado?'#EF4444':'#3B82F6';
+        const ms2=concluido?'✅ Concluído':atrasado?'🔴 Atrasado':'🔵 No prazo';
+        const badgeBg=concluido?'rgba(34,197,94,.18)':atrasado?'rgba(239,68,68,.18)':'rgba(59,130,246,.18)';
+
+        const wrap=document.createElement('div');
+        wrap.className='marco-wrap';
+        wrap.style.left=xp+'%'; wrap.style.top='26px';
+
+        const mk=document.createElement('div');
+        mk.className='marco '+(concluido?'done':atrasado?'late':'ok');
+        wrap.appendChild(mk);
+
+        const stem=document.createElement('div'); stem.className='marco-stem';
+        wrap.appendChild(stem);
+
+        const lblEl=document.createElement('div'); lblEl.className='marco-lbl';
+        lblEl.textContent=novoNome; wrap.appendChild(lblEl);
+
+        const tipHTML=`<div class="mt-title"><span class="mt-diamond" style="background:${{mc2}}"></span>${{novoNome}}</div>
+          <div class="mt-row"><span class="mt-label">Data</span><span class="mt-val">${{fmtDate(termMs)}}</span></div>
+          <div class="mt-row"><span class="mt-label">% Concluído</span><span class="mt-val">${{novoPct}}%</span></div>
+          <div style="margin-top:8px;"><span class="mt-badge" style="background:${{badgeBg}};color:${{mc2}}">${{ms2}}</span></div>`;
+
+        wrap.addEventListener('mouseenter',()=>{{ marcoTip.innerHTML=tipHTML; marcoTip.classList.add('show'); }});
+        wrap.addEventListener('mousemove',e=>{{
+          let tx=e.clientX+14,ty=e.clientY-10;
+          if(tx+220>window.innerWidth) tx=e.clientX-230;
+          if(ty<8) ty=e.clientY+20;
+          marcoTip.style.left=tx+'px'; marcoTip.style.top=ty+'px';
+        }});
+        wrap.addEventListener('mouseleave',()=>marcoTip.classList.remove('show'));
+        wrap.addEventListener('click',e=>{{ e.stopPropagation(); openModalMarco(novoMarco, ctxTargetProj); }});
+        wrap.addEventListener('contextmenu',e=>{{
+          e.preventDefault(); e.stopPropagation();
+          marcoTip.classList.remove('show');
+          ctxTargetMarco=novoMarco; ctxTargetProj=ctxTargetProj;
+          ctxTargetWrap=wrap;
+          ctxMenu.style.left=(e.clientX+2)+'px'; ctxMenu.style.top=(e.clientY+2)+'px';
+          ctxMenu.classList.add('show');
+        }});
+        tla.appendChild(wrap);
+      }}
+    }}
+  }}
   closeEditModal();
 }}
 
