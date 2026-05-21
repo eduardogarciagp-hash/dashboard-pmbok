@@ -598,8 +598,8 @@ if proj_data:
 <html><head><meta charset="utf-8">
 <style>
 *{{box-sizing:border-box;margin:0;padding:0;font-family:'Inter','Segoe UI',sans-serif;}}
-body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
-#wrap{{position:relative;width:100%;padding:0 16px 16px 16px;}}
+body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
+#wrap{{position:relative;width:100%;padding:0 16px 16px 16px;overflow:visible;}}
 
 /* HEADER */
 #header-row{{position:relative;height:32px;margin-bottom:2px;}}
@@ -612,7 +612,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
 }}
 
 /* BODY */
-#body{{position:relative;width:100%;}}
+#body{{position:relative;width:100%;overflow:visible;}}
 .gridline{{position:absolute;top:0;bottom:0;width:1px;background:rgba(100,116,139,.15);pointer-events:none;}}
 .today-line{{position:absolute;top:0;bottom:0;width:2px;background:rgba(99,179,237,.6);pointer-events:none;z-index:5;}}
 .today-lbl{{
@@ -710,37 +710,33 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
   background:rgba(30,41,59,.95);
 }}
 
-/* HOVER TOOLTIP DO MARCO */
-.marco-tooltip{{
+/* HOVER TOOLTIP DO MARCO — position fixed, segue o mouse */
+#marco-tip{{
   display:none;
-  position:absolute;
-  bottom:calc(100% + 10px);
-  left:50%;transform:translateX(-50%);
+  position:fixed;
   background:#1E293B;
   border:1px solid #334155;
   border-radius:10px;
-  padding:12px 16px;
-  min-width:200px;
-  box-shadow:0 12px 40px rgba(0,0,0,.7);
+  padding:14px 18px;
+  min-width:210px;
+  box-shadow:0 16px 48px rgba(0,0,0,.8),0 0 0 1px rgba(99,179,237,.08);
   font-size:11px;line-height:1.7;color:#E2E8F0;
   pointer-events:none;
-  z-index:200;
+  z-index:9999;
   white-space:normal;
+  transition:opacity .1s;
 }}
-.marco-tooltip::after{{
-  content:'';
-  position:absolute;top:100%;left:50%;transform:translateX(-50%);
-  border:6px solid transparent;
-  border-top-color:#334155;
-}}
-.marco-wrap:hover .marco-tooltip{{display:block;}}
+#marco-tip.show{{display:block;}}
 .mt-title{{font-size:12px;font-weight:700;color:#E2E8F0;margin-bottom:8px;
-           border-bottom:1px solid #334155;padding-bottom:6px;}}
-.mt-row{{display:flex;justify-content:space-between;gap:16px;margin-bottom:3px;}}
-.mt-label{{color:#64748B;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}}
+           border-bottom:1px solid #2D3F55;padding-bottom:6px;
+           display:flex;align-items:center;gap:6px;}}
+.mt-diamond{{width:9px;height:9px;transform:rotate(45deg);
+             border-radius:1px;flex-shrink:0;display:inline-block;}}
+.mt-row{{display:flex;justify-content:space-between;gap:20px;margin-bottom:3px;}}
+.mt-label{{color:#475569;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}}
 .mt-val{{color:#CBD5E1;font-weight:600;text-align:right;}}
-.mt-badge{{display:inline-block;padding:2px 8px;border-radius:10px;
-           font-size:10px;font-weight:700;margin-top:6px;}}
+.mt-badge{{display:inline-block;padding:2px 10px;border-radius:10px;
+           font-size:10px;font-weight:700;margin-top:8px;}}
 
 /* MODAL */
 #modal-overlay{{
@@ -814,6 +810,8 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
   </div>
 </div>
 
+<div id="marco-tip"></div>
+
 <!-- MODAL -->
 <div id="modal-overlay">
   <div id="modal">
@@ -824,6 +822,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
 
 <script>
 const PROJECTS = {proj_json};
+const marcoTip = document.getElementById('marco-tip');
 const HOJE_MS  = {hoje_ts};
 const ROW_H    = {row_h};
 const LABEL_W  = 200;
@@ -991,14 +990,15 @@ PROJECTS.forEach((p,i)=>{{
     lbl.textContent=m.nome;
     wrap.appendChild(lbl);
 
-    // Tooltip rico no hover
+    // Tooltip rico — position:fixed, segue mouse, nunca fica atrás
     const mc2=m.concluido?'#22C55E':m.atrasado?'#EF4444':'#3B82F6';
     const ms2=m.concluido?'✅ Concluído':m.atrasado?'🔴 Atrasado':'🔵 No prazo';
-    const badgeBg=m.concluido?'rgba(34,197,94,.15)':m.atrasado?'rgba(239,68,68,.15)':'rgba(59,130,246,.15)';
-    const tip=document.createElement('div');
-    tip.className='marco-tooltip';
-    tip.innerHTML=`
-      <div class="mt-title">♦ ${{m.nome}}</div>
+    const badgeBg=m.concluido?'rgba(34,197,94,.18)':m.atrasado?'rgba(239,68,68,.18)':'rgba(59,130,246,.18)';
+    const tipHTML=`
+      <div class="mt-title">
+        <span class="mt-diamond" style="background:${{mc2}}"></span>
+        ${{m.nome}}
+      </div>
       <div class="mt-row">
         <span class="mt-label">Data</span>
         <span class="mt-val">${{fmtDate(m.termino)}}</span>
@@ -1010,10 +1010,28 @@ PROJECTS.forEach((p,i)=>{{
       ${{m.baseline?`<div class="mt-row">
         <span class="mt-label">Baseline</span>
         <span class="mt-val">${{fmtDate(m.baseline)}}</span>
-      </div>`:''}}<div>
+      </div>`:''}}
+      <div style="margin-top:8px;">
         <span class="mt-badge" style="background:${{badgeBg}};color:${{mc2}}">${{ms2}}</span>
       </div>`;
-    wrap.appendChild(tip);
+
+    wrap.addEventListener('mouseenter', ()=>{{
+      marcoTip.innerHTML=tipHTML;
+      marcoTip.classList.add('show');
+    }});
+    wrap.addEventListener('mousemove', e=>{{
+      // Posição relativa ao viewport, offset para não cobrir o cursor
+      let tx=e.clientX+14, ty=e.clientY-10;
+      // Evitar saída pela direita
+      if(tx+220>window.innerWidth) tx=e.clientX-230;
+      // Evitar saída pelo topo
+      if(ty<8) ty=e.clientY+20;
+      marcoTip.style.left=tx+'px';
+      marcoTip.style.top=ty+'px';
+    }});
+    wrap.addEventListener('mouseleave', ()=>{{
+      marcoTip.classList.remove('show');
+    }});
 
     wrap.addEventListener('click', e=>{{ e.stopPropagation(); openModalMarco(m, p); }});
     tla.appendChild(wrap);
