@@ -401,11 +401,20 @@ if not df_gantt.empty:
             showlegend=False,
         ))
 
-    fig_gantt.add_vline(
+fig_gantt.add_shape(
+        type="line",
+        x0=date.today().strftime('%Y-%m-%d'),
+        x1=date.today().strftime('%Y-%m-%d'),
+        y0=0, y1=1, yref="paper",
+        line=dict(dash="dash", color="#6B7A99", width=1.5),
+    )
+    fig_gantt.add_annotation(
         x=date.today().strftime('%Y-%m-%d'),
-        line_dash="dash", line_color="#6B7A99", line_width=1.5,
-        annotation_text=f"Hoje {date.today().strftime('%d/%m')}",
-        annotation_position="top right",
+        y=1, yref="paper",
+        text=f"Hoje {date.today().strftime('%d/%m')}",
+        showarrow=False,
+        font=dict(size=10, color="#6B7A99"),
+        xanchor="left",
     )
     fig_gantt.update_layout(
         barmode='overlay', height=max(280, len(df_gantt) * 32 + 60),
