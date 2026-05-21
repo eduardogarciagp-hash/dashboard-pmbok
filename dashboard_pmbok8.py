@@ -1057,9 +1057,16 @@ PROJECTS.forEach((p,i)=>{{
   const tla=document.createElement('div');
   tla.className='tl-area';
 
-  // BAR
+  // BAR — estende até o marco mais distante se ele ultrapassar o término do projeto
   if(p.inicio!=null&&p.termino!=null){{
-    const x0=d2p(p.inicio), x1=d2p(p.termino);
+    // Calcula o fim real: término do projeto ou data do marco mais distante
+    let barEndMs = p.termino;
+    if(p.marcos&&p.marcos.length>0){{
+      p.marcos.forEach(m=>{{
+        if(m.termino!=null && m.termino > barEndMs) barEndMs = m.termino;
+      }});
+    }}
+    const x0=d2p(p.inicio), x1=d2p(barEndMs);
     const lp=Math.max(0,x0), rp=Math.min(100,x1), wp=rp-lp;
     if(wp>0.05){{
       const bar=document.createElement('div');
