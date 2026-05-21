@@ -190,6 +190,39 @@ def build_df(tasks: list[dict]) -> pd.DataFrame:
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
 
 @st.cache_data(show_spinner=False, ttl=3600)
+def gerar_governanca_ia(proj_name: str, tarefas_json: str) -> list:
+    prompt = (
+        f"Voce e um especialista senior em PMO certificado pelo PMI, com dominio em PMBOK 8a Edicao.\n\n"
+        f"Analise os dados do projeto '{proj_name}' exportados do MS Project.\n"
+        f"Identifique os 2 a 4 pontos criticos mais relevantes para apresentacao a diretores executivos.\n\n"
+        f"Para cada ponto critico gere:\n"
+        f"- titulo: titulo executivo conciso (max 80 chars) com o indicador principal\n"
+        f"- impacto: impacto no negocio em 3-5 frases com consequencias concretas para a empresa\n"
+        f"- causa: causa raiz tecnica identificada nos dados com nomes de tarefas, SPI e datas\n"
+        f"- plano: plano de acao com etapas numeradas, responsaveis genericos e prazos realistas\n\n"
+        f"Dados:\n{tarefas_json}\n\n"
+        f"Responda SOMENTE em JSON valido sem markdown:\n"
+        f'[{{"titulo":"...","impacto":"...","causa":"...","plano":"..."}}]'
+    )
+    try:
+        resp = requests.post(
+            ANTHROPIC_API,
+            headers={"Content-Type": "application/json"},
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 3000,
+                "messages": [{"role": "user", "content": prompt}]
+            },
+            timeout=60,
+        )
+        data = resp.json()
+        text = data["content"][0]["text"]
+        text = re.sub(r'```json|```', '', text).strip()
+        return json.loads(text)
+    except Exception:
+        return []
+
+@st.cache_data(show_spinner=False, ttl=3600)
 def gerar_insights_ia(proj_name: str, criticos_json: str) -> dict:
     """Chama Claude para gerar insights de governança para as tarefas críticas."""
     prompt = f"""Você é um especialista em PMO e PMBOK 8ª Edição. 
@@ -1806,7 +1839,21 @@ for proj in projetos_gov:
 
     # Inicializa com análise PMO se ainda não foi editado pelo usuário
     if k not in st.session_state.gov_data:
-        st.session_state.gov_data[k] = GOV_DEFAULTS.get(k, [{"titulo": "", "impacto": "", "causa": "", "plano": ""}])
+        if k in GOV_DEFAULTS:
+            st.session_state.gov_data[k] = GOV_DEFAULTS[k]
+        elif usar_ia:
+            df_proj = df_view[df_view['projeto'] == proj].copy()
+            _t = df_proj[(df_proj['spi_num'].notna())&(df_proj['nivel']<=4)][
+                ['nome','nivel','pct','spi_num','inicio','termino','status']].copy()
+            _t['inicio']  = _t['inicio'].dt.strftime('%Y-%m-%d').fillna('')
+            _t['termino'] = _t['termino'].dt.strftime('%Y-%m-%d').fillna('')
+            _t = _t.rename(columns={'spi_num':'spi'})
+            with st.spinner(f"Analisando {proj} com IA..."):
+                _res = gerar_governanca_ia(proj, json.dumps(_t.to_dict('records'), ensure_ascii=False))
+            st.session_state.gov_data[k] = _res if _res else [{"titulo":"","impacto":"","causa":"","plano":""}]
+            if _res: st.rerun()
+        else:
+            st.session_state.gov_data[k] = [{"titulo":"","impacto":"","causa":"","plano":""}]
 
     # Badge de alerta pelo IDP
     idp_val = idp_por_projeto_final.get(proj)
@@ -1842,9 +1889,25 @@ for proj in projetos_gov:
 
             st.markdown("")
             if not _apresentando:
-                if st.button("✏️ Editar", key=f"btn_edit_{k}"):
-                    st.session_state[f"edit_mode_{k}"] = True
-                    st.rerun()
+                _bc = st.columns([1, 1]) if usar_ia else [st.container()]
+                with _bc[0]:
+                    if st.button("✏️ Editar", key=f"btn_edit_{k}", use_container_width=True):
+                        st.session_state[f"edit_mode_{k}"] = True
+                        st.rerun()
+                if usar_ia:
+                    with _bc[1]:
+                        if st.button("🤖 Regenerar IA", key=f"btn_ia_{k}", use_container_width=True):
+                            df_proj = df_view[df_view['projeto'] == proj].copy()
+                            _t = df_proj[(df_proj['spi_num'].notna())&(df_proj['nivel']<=4)][
+                                ['nome','nivel','pct','spi_num','inicio','termino','status']].copy()
+                            _t['inicio']  = _t['inicio'].dt.strftime('%Y-%m-%d').fillna('')
+                            _t['termino'] = _t['termino'].dt.strftime('%Y-%m-%d').fillna('')
+                            _t = _t.rename(columns={'spi_num':'spi'})
+                            with st.spinner(f"Analisando {proj}..."):
+                                _res = gerar_governanca_ia.__wrapped__(proj, json.dumps(_t.to_dict('records'), ensure_ascii=False))
+                            if _res:
+                                st.session_state.gov_data[k] = _res
+                                st.rerun()
 
         # ── MODO EDIÇÃO ───────────────────────────────────────────────────────
         else:
