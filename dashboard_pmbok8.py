@@ -483,17 +483,9 @@ if arquivos:
         st.error("Nenhum dado válido encontrado nos arquivos. Verifique o formato.")
         st.stop()
 
-    # Diagnóstico colapsado
-    with st.expander(f"🔍 Diagnóstico: {len(arquivos)} arquivo(s) carregado(s)", expanded=False):
-        for arq in arquivos:
-            st.markdown(f"**{arq.name}**")
-            try:
-                df_diag = pd.read_excel(arq)
-                df_diag.columns = df_diag.columns.str.strip()
-                st.code("\n".join([f"{i+1:02d}. {c}" for i, c in enumerate(df_diag.columns)]))
-                st.dataframe(df_diag.head(2), use_container_width=True)
-            except Exception as e:
-                st.warning(f"Erro: {e}")
+    # Diagnóstico global colapsado — já exibido dentro de normalizar_arquivo
+    with st.expander(f"📋 Resumo: {len(arquivos)} arquivo(s) importado(s)", expanded=False):
+        st.markdown("\n".join([f"- `{a.name}`" for a in arquivos]))
 else:
     df_full = carregar_dados_mock()
 
