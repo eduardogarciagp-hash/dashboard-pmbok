@@ -127,16 +127,45 @@ def normalizar_arquivo(arquivo) -> pd.DataFrame:
     O nome do projeto é derivado do nome do arquivo se não houver coluna Projeto.
     """
     try:
-        df = pd.read_excel(arquivo)
+        # Lê sem conversão automática de datas para inspecionar valores brutos
+        df = pd.read_excel(arquivo, dtype=str)
     except Exception as e:
         st.warning(f"⚠️ Erro ao ler '{arquivo.name}': {e}")
         return pd.DataFrame()
 
-    # Normaliza cabeçalhos
     df.columns = df.columns.str.strip()
+
+    # Diagnóstico colapsado
+    with st.expander(f"🔍 Diagnóstico — '{arquivo.name}'", expanded=False):
+        st.code("\n".join([
+            f"{i+1:02d}. {c}  →  ex: {str(df[c].dropna().iloc[0]) if df[c].notna().any() else 'vazio'}"
+            for i, c in enumerate(df.columns)
+        ]))
+        st.dataframe(df.head(3), use_container_width=True)
 
     # Renomeia pelo mapa
     df.rename(columns={k: v for k, v in MAPA_COLUNAS.items() if k in df.columns}, inplace=True)
+
+    # ── Tenta parsear datas em TODAS as colunas candidatas ───────────────────
+    # O MS Project às vezes exporta datas como serial numérico do Excel (ex: 46000)
+    # ou como string "qui 01/01/2026". Tentamos todos os formatos.
+    def parse_data_coluna(serie: pd.Series) -> pd.Series:
+        # Tenta direto
+        result = pd.to_datetime(serie, errors="coerce", dayfirst=True)
+        # Se falhou muito, tenta como serial numérico Excel (dias desde 1900-01-01)
+        if result.notna().sum() < len(serie) * 0.3:
+            try:
+                numerico = pd.to_numeric(serie, errors="coerce")
+                serial_ok = numerico.notna() & (numerico > 1000) & (numerico < 100000)
+                if serial_ok.sum() > len(serie) * 0.3:
+                    from datetime import datetime
+                    result = numerico.apply(
+                        lambda x: (datetime(1899, 12, 30) + timedelta(days=int(x)))
+                        if pd.notna(x) and 1000 < x < 100000 else pd.NaT
+                    )
+            except Exception:
+                pass
+        return result
 
     # Remove linhas completamente vazias
     df.dropna(how="all", inplace=True)
@@ -164,29 +193,32 @@ def normalizar_arquivo(arquivo) -> pd.DataFrame:
     # ── Datas — busca inteligente se colunas não foram mapeadas ─────────────
     def detectar_coluna_data(df_: pd.DataFrame, col_interna: str,
                               candidatos_extras: list) -> pd.Series:
-        """
-        Tenta encontrar a coluna de data por:
-        1. Nome interno já mapeado
-        2. Lista de candidatos extras
-        3. Varredura automática: primeira coluna com >50% de valores datetime-like
-        """
-        # 1. Já existe pelo nome interno
+        # 1. Nome interno já mapeado — tenta parsear mesmo se parece vazio
         if col_interna in df_.columns:
-            return pd.to_datetime(df_[col_interna], errors="coerce")
+            result = parse_data_coluna(df_[col_interna])
+            if result.notna().sum() > len(df_) * 0.3:
+                return result
 
-        # 2. Candidatos extras não mapeados ainda presentes
+        # 2. Candidatos extras
         for c in candidatos_extras:
             if c in df_.columns:
-                return pd.to_datetime(df_[c], errors="coerce")
+                result = parse_data_coluna(df_[c])
+                if result.notna().sum() > len(df_) * 0.3:
+                    return result
 
-        # 3. Varredura automática
+        # 3. Varredura automática em todas as colunas
+        melhor_serie  = pd.Series([pd.NaT] * len(df_))
+        melhor_count  = 0
         for c in df_.columns:
-            serie = pd.to_datetime(df_[c], errors="coerce")
-            validos = serie.notna().sum()
-            if validos > len(df_) * 0.5:   # >50% de valores válidos como data
-                return serie
+            if c in ["ID","Duracao","Nivel","Pct_Concluida","AC","PV","EV"]:
+                continue  # pula colunas sabidamente não-data
+            result = parse_data_coluna(df_[c])
+            cnt = result.notna().sum()
+            if cnt > melhor_count:
+                melhor_count = cnt
+                melhor_serie = result
 
-        return pd.Series([pd.NaT] * len(df_))
+        return melhor_serie if melhor_count > len(df_) * 0.3 else pd.Series([pd.NaT] * len(df_))
 
     df["Inicio"]  = detectar_coluna_data(df, "Inicio",
                         ["Início","Start","Data Início","Data de Início",
