@@ -374,8 +374,10 @@ st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 9. SECTION 1 — ROADMAP (GANTT)
+# 9. SECTION 1 — ROADMAP PIXEL-PERFECT (HTML/JS interpolação linear)
 # ──────────────────────────────────────────────────────────────────────────────
+import streamlit.components.v1 as components
+
 st.markdown('<div class="section-title">Section 1 — Roadmap Executivo & Marcos de Valor</div>',
             unsafe_allow_html=True)
 
@@ -386,78 +388,443 @@ df_gantt = df_view[
     (~df_view['nome'].isin(['MS Project_Teste_Formulas_2', 'NOME DO PROJETO']))
 ].copy()
 
+df_milestones = df_view[
+    df_view['is_milestone'] &
+    df_view['termino'].notna() &
+    (~df_view['nome'].isin(['MS Project_Teste_Formulas_2', 'NOME DO PROJETO']))
+].copy()
+
 if not df_gantt.empty:
-    df_gantt['label'] = df_gantt.apply(
-        lambda r: f"[{r['projeto']}] {r['nome'][:40]}", axis=1)
-    df_gantt['cor'] = df_gantt['spi_num'].apply(
-        lambda s: '#DC2626' if (s and s < 0.80) else
-                  ('#F59E0B' if (s and s < 0.95) else '#2563EB'))
-    df_gantt['spi_txt'] = df_gantt['spi_num'].apply(
-        lambda s: f"SPI {s:.2f}" if pd.notna(s) else "")
+    import json as _json
 
-    fig_gantt = go.Figure()
-    for _, row in df_gantt.iterrows():
-        fig_gantt.add_trace(go.Bar(
-            x=[(row['termino'] - row['inicio']).days],
-            y=[row['label']],
-            base=[row['inicio'].strftime('%Y-%m-%d')],
-            orientation='h',
-            marker_color=row['cor'],
-            marker_opacity=0.80 if row['nivel'] == 2 else 0.50,
-            marker_line_width=0,
-            width=0.6 if row['nivel'] == 2 else 0.3,
-            text=f"{row['pct']:.0f}% {row['spi_txt']}",
-            textposition='inside',
-            insidetextanchor='middle',
-            hovertemplate=(
-                f"<b>{row['nome']}</b><br>"
-                f"Projeto: {row['projeto']}<br>"
-                f"Início: {row['inicio'].strftime('%d/%m/%Y')}<br>"
-                f"Término: {row['termino'].strftime('%d/%m/%Y')}<br>"
-                f"Conclusão: {row['pct']:.0f}%<br>"
-                f"SPI: {row['spi_txt']}<extra></extra>"
-            ),
-            showlegend=False,
-        ))
+    # ── Serializa dados para JS (UTC timestamps em ms) ────────────────────────
+    def _ts(dt):
+        """Pandas Timestamp → UTC epoch ms (sem deslocamento de fuso)."""
+        import pandas as _pd
+        if _pd.isna(dt):
+            return None
+        return int(dt.normalize().value // 1_000_000)
 
-    # Marcos
-    df_marcos = df_view[df_view['is_milestone'] & df_view['termino'].notna()]
-    for _, m in df_marcos.iterrows():
-        label = f"[{m['projeto']}] {m['nome'][:40]}"
-        fig_gantt.add_trace(go.Scatter(
-            x=[m['termino']], y=[label],
-            mode='markers+text',
-            marker=dict(symbol='diamond', size=10, color='#7C3AED'),
-            text=['♦'], textposition='middle right',
-            hovertemplate=f"<b>Marco:</b> {m['nome']}<extra></extra>",
-            showlegend=False,
-        ))
+    rows_js = []
+    for _, r in df_gantt.iterrows():
+        idp_v = r['spi_num']
+        if idp_v is None or (hasattr(idp_v, '__float__') and __import__('math').isnan(float(idp_v))):
+            bar_color = "#4A6FA5"
+        elif idp_v < 0.95:
+            bar_color = "#E05252"
+        elif idp_v < 0.99:
+            bar_color = "#D97706"
+        else:
+            bar_color = "#22C55E"
 
-    fig_gantt.add_shape(
-        type="line",
-        x0=date.today().strftime('%Y-%m-%d'),
-        x1=date.today().strftime('%Y-%m-%d'),
-        y0=0, y1=1, yref="paper",
-        line=dict(dash="dash", color="#6B7A99", width=1.5),
-    )
-    fig_gantt.add_annotation(
-        x=date.today().strftime('%Y-%m-%d'),
-        y=1, yref="paper",
-        text=f"Hoje {date.today().strftime('%d/%m')}",
-        showarrow=False,
-        font=dict(size=10, color="#6B7A99"),
-        xanchor="left",
-    )
-    fig_gantt.update_layout(
-        barmode='overlay', height=max(280, len(df_gantt) * 32 + 60),
-        plot_bgcolor='#FAFBFE', paper_bgcolor='#FAFBFE',
-        margin=dict(l=10, r=10, t=10, b=30),
-        xaxis=dict(type='date', tickformat='%b/%y', gridcolor='#E8ECF4',
-                   showgrid=True, tickfont=dict(size=10)),
-        yaxis=dict(autorange='reversed', tickfont=dict(size=10), gridcolor='#E8ECF4'),
-        font=dict(family='Inter'),
-    )
-    st.plotly_chart(fig_gantt, use_container_width=True)
+        rows_js.append({
+            "projeto": r['projeto'],
+            "nome":    r['nome'][:55],
+            "nivel":   int(r['nivel']),
+            "pct":     float(r['pct']),
+            "idp":     round(float(idp_v), 2) if (idp_v is not None and not __import__('math').isnan(float(idp_v or 0))) else None,
+            "inicio":  _ts(r['inicio']),
+            "termino": _ts(r['termino']),
+            "baseline":_ts(r['baseline_termino']),
+            "cor":     bar_color,
+        })
+
+    miles_js = []
+    for _, m in df_milestones.iterrows():
+        concluido = m['pct'] >= 100
+        atrasado  = (
+            pd.notna(m['baseline_termino']) and
+            pd.notna(m['termino']) and
+            m['termino'] > m['baseline_termino']
+        )
+        miles_js.append({
+            "projeto":  m['projeto'],
+            "nome":     m['nome'][:55],
+            "termino":  _ts(m['termino']),
+            "baseline": _ts(m['baseline_termino']),
+            "concluido": concluido,
+            "atrasado":  atrasado,
+            "pct":       float(m['pct']),
+        })
+
+    hoje_ts = int(pd.Timestamp(date.today()).normalize().value // 1_000_000)
+
+    data_json   = _json.dumps(rows_js,  ensure_ascii=False)
+    miles_json  = _json.dumps(miles_js, ensure_ascii=False)
+
+    row_h   = 36   # altura por linha px
+    n_rows  = len(rows_js)
+    body_h  = max(200, n_rows * row_h)
+    total_h = body_h + 110  # header + legenda
+
+    html_roadmap = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0;font-family:'Inter','Segoe UI',sans-serif;}}
+  body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
+  #wrap{{position:relative;width:100%;padding:0 16px 16px 16px;}}
+
+  /* HEADER MESES */
+  #header-row{{display:flex;position:relative;height:32px;margin-bottom:0;}}
+  .month-cell{{
+    position:absolute;height:100%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:600;color:#64748B;
+    text-transform:uppercase;letter-spacing:.06em;
+    border-right:1px solid #1E2D42;
+  }}
+
+  /* GRID BODY */
+  #body{{position:relative;width:100%;}}
+  .gridline{{
+    position:absolute;top:0;bottom:0;width:1px;
+    background:rgba(100,116,139,.18);pointer-events:none;
+  }}
+  .today-line{{
+    position:absolute;top:0;bottom:0;width:2px;
+    background:rgba(99,179,237,.55);pointer-events:none;z-index:10;
+  }}
+  .today-label{{
+    position:absolute;top:-22px;
+    transform:translateX(-50%);
+    font-size:9px;color:#63B3ED;font-weight:700;
+    background:#0F1623;padding:1px 4px;border-radius:3px;
+    white-space:nowrap;
+  }}
+
+  /* ROWS */
+  .gantt-row{{
+    position:relative;width:100%;
+    border-bottom:1px solid #1A2535;
+    display:flex;align-items:center;
+  }}
+  .row-label{{
+    position:absolute;left:0;top:0;bottom:0;
+    display:flex;align-items:center;
+    font-size:10px;color:#94A3B8;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;
+    pointer-events:none;
+    z-index:5;padding-left:4px;
+    max-width:180px;
+  }}
+  .row-label.nivel1{{color:#CBD5E1;font-weight:700;font-size:11px;}}
+
+  /* BARS */
+  .bar{{
+    position:absolute;border-radius:4px;cursor:pointer;
+    transition:filter .15s,opacity .15s;
+    display:flex;align-items:center;overflow:hidden;
+  }}
+  .bar:hover{{filter:brightness(1.25);z-index:20;}}
+  .bar-text{{
+    font-size:9px;font-weight:600;color:rgba(255,255,255,.9);
+    white-space:nowrap;overflow:hidden;padding:0 6px;
+  }}
+  /* progress fill inside bar */
+  .bar-progress{{
+    position:absolute;left:0;top:0;bottom:0;
+    background:rgba(255,255,255,.18);border-radius:4px 0 0 4px;
+    pointer-events:none;
+  }}
+
+  /* MILESTONES */
+  .milestone{{
+    position:absolute;width:14px;height:14px;
+    transform:rotate(45deg) translate(-50%,-50%);
+    cursor:pointer;z-index:15;transition:transform .15s,filter .15s;
+  }}
+  .milestone:hover{{transform:rotate(45deg) translate(-50%,-50%) scale(1.5);filter:brightness(1.4);}}
+  .milestone.done{{background:#22C55E;box-shadow:0 0 8px #22C55E88;}}
+  .milestone.ok{{background:#3B82F6;box-shadow:0 0 6px #3B82F666;}}
+  .milestone.late{{
+    background:#EF4444;
+    box-shadow:0 0 10px #EF444488;
+    animation:pulse-red 1.4s ease-in-out infinite;
+  }}
+  @keyframes pulse-red{{
+    0%,100%{{box-shadow:0 0 8px #EF444499;}}
+    50%{{box-shadow:0 0 18px #EF4444DD,0 0 30px #EF444455;}}
+  }}
+
+  /* TOOLTIP */
+  #tooltip{{
+    position:fixed;pointer-events:none;z-index:9999;
+    background:#1E293B;border:1px solid #334155;
+    border-radius:8px;padding:10px 14px;min-width:200px;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);
+    font-size:11px;line-height:1.6;color:#E2E8F0;
+    opacity:0;transition:opacity .12s;
+  }}
+  #tooltip.show{{opacity:1;}}
+  #tooltip b{{color:#93C5FD;}}
+  #tooltip .tt-sep{{border-top:1px solid #334155;margin:6px 0;}}
+
+  /* LEGENDA */
+  #legend{{
+    display:flex;gap:20px;align-items:center;
+    padding:10px 0 0 0;flex-wrap:wrap;
+  }}
+  .leg-item{{display:flex;align-items:center;gap:6px;font-size:10px;color:#64748B;}}
+  .leg-diamond{{width:10px;height:10px;transform:rotate(45deg);flex-shrink:0;}}
+  .leg-bar{{width:24px;height:8px;border-radius:2px;flex-shrink:0;}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="header-row"></div>
+  <div id="body"></div>
+  <div id="legend">
+    <div class="leg-item"><div class="leg-diamond" style="background:#22C55E"></div>Marco Concluído</div>
+    <div class="leg-item"><div class="leg-diamond" style="background:#3B82F6"></div>Marco no Prazo</div>
+    <div class="leg-item"><div class="leg-diamond" style="background:#EF4444"></div>Marco Atrasado</div>
+    <div class="leg-item"><div class="leg-bar" style="background:#22C55E"></div>IDP ≥ 0,99</div>
+    <div class="leg-item"><div class="leg-bar" style="background:#D97706"></div>IDP ≥ 0,95</div>
+    <div class="leg-item"><div class="leg-bar" style="background:#E05252"></div>IDP &lt; 0,95</div>
+    <div class="leg-item"><div class="leg-bar" style="background:#4A6FA5"></div>IDP N/A</div>
+  </div>
+</div>
+<div id="tooltip"></div>
+
+<script>
+const ROWS     = {data_json};
+const MILES    = {miles_json};
+const HOJE_MS  = {hoje_ts};
+const ROW_H    = {row_h};
+const LABEL_W  = 190;  // px reserved for row labels on left
+
+// ── 1. CALCULAR MinDate / MaxDate ──────────────────────────────────────────
+let minMs = Infinity, maxMs = -Infinity;
+ROWS.forEach(r => {{
+  if(r.inicio  != null) {{ minMs = Math.min(minMs, r.inicio);  maxMs = Math.max(maxMs, r.inicio);  }}
+  if(r.termino != null) {{ minMs = Math.min(minMs, r.termino); maxMs = Math.max(maxMs, r.termino); }}
+}});
+MILES.forEach(m => {{
+  if(m.termino != null) {{ minMs = Math.min(minMs, m.termino); maxMs = Math.max(maxMs, m.termino); }}
+}});
+// Extend slightly so bars don't clip at edges
+const SPAN = maxMs - minMs;
+const MIN  = minMs - SPAN * 0.01;
+const MAX  = maxMs + SPAN * 0.03;
+
+// ── 2. FUNÇÃO DE INTERPOLAÇÃO LINEAR ──────────────────────────────────────
+function dateToPercent(ms) {{
+  return ((ms - MIN) / (MAX - MIN)) * 100;
+}}
+
+// ── 3. GERAR MESES DO CABEÇALHO ───────────────────────────────────────────
+function generateMonths(minMs, maxMs) {{
+  const months = [];
+  const d = new Date(minMs);
+  d.setUTCDate(1);
+  while(d.getTime() <= maxMs + 86400000 * 31) {{
+    const start = d.getTime();
+    const nextD = new Date(d);
+    nextD.setUTCMonth(nextD.getUTCMonth() + 1);
+    const end = nextD.getTime();
+    months.push({{ start, end,
+      label: d.toLocaleDateString('pt-BR', {{month:'short', year:'2-digit', timeZone:'UTC'}})
+    }});
+    d.setUTCMonth(d.getUTCMonth() + 1);
+    if(d.getUTCFullYear() > 2030) break;
+  }}
+  return months;
+}}
+
+const MONTHS = generateMonths(MIN, MAX);
+const MNAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+// ── 4. RENDERIZAR CABEÇALHO ────────────────────────────────────────────────
+const headerRow = document.getElementById('header-row');
+// Available width for timeline = total - LABEL_W (will use percent inside relative)
+MONTHS.forEach(m => {{
+  const x0 = dateToPercent(m.start);
+  const x1 = dateToPercent(m.end);
+  if(x1 < 0 || x0 > 100) return;
+  const left  = Math.max(0, x0);
+  const right = Math.min(100, x1);
+  const w = right - left;
+  if(w < 0.5) return;
+
+  // Adjust for label width: shift right by LABEL_W px equivalent
+  const el = document.createElement('div');
+  el.className = 'month-cell';
+  el.style.left  = `calc(${{LABEL_W}}px + (${{left / 100}} * (100% - ${{LABEL_W}}px)))`;
+  el.style.width = `calc(${{w / 100}} * (100% - ${{LABEL_W}}px))`;
+  const dt = new Date(m.start);
+  el.textContent = MNAMES[dt.getUTCMonth()] + '/' + String(dt.getUTCFullYear()).slice(2);
+  headerRow.appendChild(el);
+}});
+
+// ── 5. RENDERIZAR BODY ────────────────────────────────────────────────────
+const body = document.getElementById('body');
+body.style.height = (ROW_H * ROWS.length) + 'px';
+body.style.position = 'relative';
+
+// Gridlines for each month start
+MONTHS.forEach(m => {{
+  const xp = dateToPercent(m.start);
+  if(xp < 0 || xp > 100) return;
+  const gl = document.createElement('div');
+  gl.className = 'gridline';
+  gl.style.left = `calc(${{LABEL_W}}px + (${{xp / 100}} * (100% - ${{LABEL_W}}px)))`;
+  body.appendChild(gl);
+}});
+
+// Linha de hoje
+if(HOJE_MS >= MIN && HOJE_MS <= MAX) {{
+  const xp = dateToPercent(HOJE_MS);
+  const tl = document.createElement('div');
+  tl.className = 'today-line';
+  tl.style.left = `calc(${{LABEL_W}}px + (${{xp / 100}} * (100% - ${{LABEL_W}}px)))`;
+  const lbl = document.createElement('div');
+  lbl.className = 'today-label';
+  lbl.style.left = tl.style.left;
+  lbl.style.position = 'absolute';
+  lbl.style.top = '-22px';
+  const hd = new Date(HOJE_MS);
+  lbl.textContent = 'Hoje ' + hd.getUTCDate() + '/' + (hd.getUTCMonth()+1);
+  body.appendChild(tl);
+  body.appendChild(lbl);
+}}
+
+// ── 6. TOOLTIP ────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+function showTip(html, e) {{
+  tooltip.innerHTML = html;
+  tooltip.classList.add('show');
+  moveTip(e);
+}}
+function moveTip(e) {{
+  let x = e.clientX + 14, y = e.clientY - 10;
+  if(x + 220 > window.innerWidth) x = e.clientX - 230;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}}
+function hideTip() {{ tooltip.classList.remove('show'); }}
+document.addEventListener('mousemove', e => {{ if(tooltip.classList.contains('show')) moveTip(e); }});
+
+function fmtDate(ms) {{
+  if(ms == null) return '—';
+  const d = new Date(ms);
+  return d.getUTCDate().toString().padStart(2,'0') + '/'
+       + (d.getUTCMonth()+1).toString().padStart(2,'0') + '/'
+       + d.getUTCFullYear();
+}}
+function idpLabel(v) {{
+  if(v == null) return 'N/A';
+  if(v >= 0.99) return '<span style="color:#22C55E">' + v.toFixed(2) + ' 😊 Em dia</span>';
+  if(v >= 0.95) return '<span style="color:#D97706">' + v.toFixed(2) + ' 😐 Em alerta</span>';
+  return '<span style="color:#EF4444">' + v.toFixed(2) + ' 😟 Em atraso</span>';
+}}
+
+// ── 7. RENDERIZAR LINHAS + BARRAS ─────────────────────────────────────────
+ROWS.forEach((r, i) => {{
+  const rowEl = document.createElement('div');
+  rowEl.className = 'gantt-row';
+  rowEl.style.height = ROW_H + 'px';
+  rowEl.style.top = (i * ROW_H) + 'px';
+  rowEl.style.position = 'absolute';
+  rowEl.style.width = '100%';
+  // alternating row bg
+  rowEl.style.background = i % 2 === 0 ? 'rgba(255,255,255,.018)' : 'transparent';
+
+  // Label
+  const lbl = document.createElement('div');
+  lbl.className = 'row-label' + (r.nivel === 1 ? ' nivel1' : '');
+  lbl.style.width = LABEL_W + 'px';
+  lbl.title = '[' + r.projeto + '] ' + r.nome;
+  // Show short version
+  const short = r.nome.length > 22 ? r.nome.slice(0,22)+'…' : r.nome;
+  lbl.textContent = short;
+  rowEl.appendChild(lbl);
+
+  if(r.inicio != null && r.termino != null) {{
+    const x0p = dateToPercent(r.inicio);
+    const x1p = dateToPercent(r.termino);
+    const leftPct  = Math.max(0, x0p);
+    const rightPct = Math.min(100, x1p);
+    const wPct = rightPct - leftPct;
+    if(wPct > 0.05) {{
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.left   = `calc(${{LABEL_W}}px + (${{leftPct/100}} * (100% - ${{LABEL_W}}px)))`;
+      bar.style.width  = `calc(${{wPct/100}} * (100% - ${{LABEL_W}}px))`;
+      bar.style.height = (r.nivel === 1 ? ROW_H * 0.42 : ROW_H * 0.55) + 'px';
+      bar.style.top    = ((ROW_H - (r.nivel === 1 ? ROW_H*0.42 : ROW_H*0.55)) / 2) + 'px';
+      bar.style.background = r.cor;
+      bar.style.opacity = r.nivel === 1 ? '0.55' : '0.80';
+
+      // Progress fill
+      const prog = document.createElement('div');
+      prog.className = 'bar-progress';
+      prog.style.width = r.pct + '%';
+      bar.appendChild(prog);
+
+      // Bar text
+      const bt = document.createElement('div');
+      bt.className = 'bar-text';
+      const idpTxt = r.idp != null ? ' · IDP ' + r.idp.toFixed(2) : '';
+      bt.textContent = r.pct.toFixed(0) + '%' + idpTxt;
+      bar.appendChild(bt);
+
+      // Tooltip
+      bar.addEventListener('mouseenter', e => {{
+        showTip(`<b>${{r.nome}}</b><div class="tt-sep"></div>
+          <b>Projeto:</b> ${{r.projeto}}<br>
+          <b>Início:</b> ${{fmtDate(r.inicio)}}<br>
+          <b>Término:</b> ${{fmtDate(r.termino)}}<br>
+          <b>Baseline:</b> ${{fmtDate(r.baseline)}}<br>
+          <b>Conclusão:</b> ${{r.pct.toFixed(0)}}%<br>
+          <b>IDP:</b> ${{idpLabel(r.idp)}}`, e);
+      }});
+      bar.addEventListener('mouseleave', hideTip);
+      rowEl.appendChild(bar);
+    }}
+  }}
+  body.appendChild(rowEl);
+}});
+
+// ── 8. RENDERIZAR MARCOS ──────────────────────────────────────────────────
+MILES.forEach(m => {{
+  if(m.termino == null) return;
+  const xp = dateToPercent(m.termino);
+  if(xp < 0 || xp > 100) return;
+
+  // Find matching row index
+  const rowIdx = ROWS.findIndex(r =>
+    r.projeto === m.projeto &&
+    Math.abs((r.inicio || 0) - (m.termino || 0)) < 86400000 * 400
+  );
+  const yCenter = rowIdx >= 0
+    ? rowIdx * ROW_H + ROW_H / 2
+    : ROWS.length * ROW_H / 2;
+
+  const ms = document.createElement('div');
+  ms.className = 'milestone' + (m.concluido ? ' done' : m.atrasado ? ' late' : ' ok');
+  ms.style.left = `calc(${{LABEL_W}}px + (${{xp / 100}} * (100% - ${{LABEL_W}}px)))`;
+  ms.style.top  = yCenter + 'px';
+  ms.title = m.nome;
+
+  ms.addEventListener('mouseenter', e => {{
+    const status = m.concluido ? '✅ Concluído' : m.atrasado ? '🔴 Atrasado' : '🔵 No prazo';
+    showTip(`<b>♦ ${{m.nome}}</b><div class="tt-sep"></div>
+      <b>Projeto:</b> ${{m.projeto}}<br>
+      <b>Data:</b> ${{fmtDate(m.termino)}}<br>
+      <b>Baseline:</b> ${{fmtDate(m.baseline)}}<br>
+      <b>Status:</b> ${{status}}`, e);
+  }});
+  ms.addEventListener('mouseleave', hideTip);
+  body.appendChild(ms);
+}});
+</script>
+</body>
+</html>
+"""
+
+    components.html(html_roadmap, height=total_h, scrolling=False)
 
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
 
