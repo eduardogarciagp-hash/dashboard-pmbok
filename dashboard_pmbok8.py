@@ -481,95 +481,89 @@ for proj in sorted(df_view['projeto'].unique()):
     else:
         bar_cor = "#22C55E"   # Encerramento
 
-    # ── Identificação de Marcos — critério técnico PMBOK 8ª Edição ─────────────
-    # Um marco é um evento significativo sem duração que representa:
+    # ── Marcos curados por análise PMO PMBOK 8ª Edição ──────────────────────────
+    # Marcos definidos com critério técnico: eventos significativos que representam
     # conclusão de entrega, decisão crítica ou transição de fase.
-    #
-    # Critérios (qualquer um satisfeito):
-    #   1. Campo Milestone=1 do MS Project
-    #   2. Duração <= 8h e não é tarefa resumo (evento pontual de 1 dia)
-    #   3. Nome contém palavras-chave de entrega/decisão
-    #   4. L2 com duração exatamente 8h e não resumo (evento de fase)
+    # Curados manualmente após análise do XML de cada projeto.
 
-    KEYWORDS_MARCO = [
-        'kick-off', 'kickoff', 'go-live', 'go live', 'golive',
-        'assinatura', 'encerramento', 'aprovação', 'aprovacao',
-        'publicação', 'publicacao', 'cutover', 'go live',
-        'demanda concluída', 'demanda concluida',
-        'validação técnica', 'validacao tecnica',
-        'entrega q1', 'entrega q2', 'entrega q3', 'entrega q4',
-        'entregas q1', 'entregas q2', 'entregas q3', 'entregas q4',
-        'definição entregas', 'definicao entregas',
-        'conclusão', 'conclusao', 'ativação sku', 'ativacao sku',
-        'quality gate', 'reunião de encerramento', 'reuniao de encerramento',
-    ]
+    MARCOS_CURADOS = {
+        "Business Data Fabric": [
+            {"nome": "Kick-off Projeto",               "data": "2026-03-25", "pct": 100},
+            {"nome": "Assinatura Contrato MS Fabric",  "data": "2026-06-09", "pct": 0},
+            {"nome": "Assinatura Contrato Implantação","data": "2026-06-09", "pct": 0},
+            {"nome": "Ativação SKU / Go-Live Fabric",  "data": "2026-06-23", "pct": 0},
+            {"nome": "Publicação Política Governança", "data": "2026-04-30", "pct": 0},
+            {"nome": "Demanda Concluída – SAC GO-LIVE","data": "2026-07-02", "pct": 0},
+            {"nome": "Encerramento do Projeto",        "data": "2026-12-11", "pct": 0},
+        ],
+        "Cockpit Engenharia": [
+            {"nome": "Aprovação TAP",                  "data": "2026-05-22", "pct": 64},
+            {"nome": "Kick-off Fase 1",                "data": "2026-06-05", "pct": 100},
+            {"nome": "Assinatura Contrato Fase 2",     "data": "2026-08-14", "pct": 0},
+            {"nome": "GO-LIVE",                        "data": "2026-10-29", "pct": 0},
+        ],
+        "Esteira Analytics": [
+            {"nome": "Definição Entregas Q1",          "data": "2026-01-02", "pct": 100},
+            {"nome": "Assinatura Contrato Estratégia", "data": "2026-03-06", "pct": 100},
+            {"nome": "Go Live Estratégia de Dados",    "data": "2026-04-30", "pct": 100},
+            {"nome": "Go Live CEO Digital Boardroom",  "data": "2026-04-30", "pct": 100},
+            {"nome": "Conclusão Entregas Q1",          "data": "2026-05-27", "pct": 87},
+            {"nome": "Conclusão Entregas Q2",          "data": "2026-06-30", "pct": 0},
+            {"nome": "Conclusão Entregas Q3",          "data": "2026-09-30", "pct": 0},
+            {"nome": "Conclusão Entregas Q4",          "data": "2026-12-31", "pct": 0},
+        ],
+    }
 
-    def _is_marco(row):
-        nome_lower = (row['nome'] or '').lower()
-        # Critério 1: flag nativa do MS Project
-        if row.get('is_milestone'):
-            return True
-        # Critério 2: duração <= 8h e não é resumo
-        if not row.get('is_summary') and row.get('dur_h', 99) <= 8:
-            return True
-        # Critério 3: palavras-chave semânticas
-        if any(kw in nome_lower for kw in KEYWORDS_MARCO):
-            return True
-        # Critério 4: L2 exatamente 8h e não resumo
-        if row.get('nivel') == 2 and not row.get('is_summary') and row.get('dur_h') == 8:
-            return True
-        return False
-
-    # Precisamos da coluna dur_h — calcular a partir da duração bruta do XML
-    # Como df_view não tem dur_h, recalculamos via parse do campo Duration
-    # Buscamos todas as tarefas candidatas e aplicamos os critérios
-    import re as _re
-
-    df_cands = df_p[
-        df_p['termino'].notna() &
-        (~df_p['nome'].isin(SKIP_NAMES))
-    ].copy()
-
-    # Adiciona dur_h temporário a partir do campo duration_raw se existir,
-    # senão usa heurística: início == término → 8h
-    def _dur_h(row):
-        # Se início == término, assume evento 1 dia = 8h
-        if pd.notna(row['inicio']) and pd.notna(row['termino']):
-            if row['inicio'].date() == row['termino'].date():
-                return 8
-        return 999  # duração longa = não é pontual
-
-    df_cands['dur_h']    = df_cands.apply(_dur_h, axis=1)
-    df_cands['is_marco'] = df_cands.apply(_is_marco, axis=1)
-    df_miles = df_cands[df_cands['is_marco']].copy()
-
-    # Se não encontrou nada, fallback: usar L2 resumos como referência de fase
-    if df_miles.empty:
+    # Busca marcos curados para este projeto; fallback para L2 se projeto não mapeado
+    marcos_def = MARCOS_CURADOS.get(proj)
+    if marcos_def:
+        marcos = []
+        for md in marcos_def:
+            dt = pd.Timestamp(md["data"])
+            pct_m = md["pct"]
+            concluido = pct_m >= 100
+            # Atrasado: % < 100 e data já passou
+            atrasado = (not concluido) and (dt.date() < date.today())
+            marcos.append({
+                "nome":      md["nome"],
+                "termino":   int(dt.normalize().value // 1_000_000),
+                "baseline":  None,
+                "pct":       float(pct_m),
+                "status":    "",
+                "resp":      "",
+                "nivel":     2,
+                "concluido": concluido,
+                "atrasado":  atrasado,
+            })
+        df_miles = pd.DataFrame()  # não usado abaixo quando marcos já preenchido
+    else:
+        marcos = []
         df_miles = df_p[
             (df_p['nivel'] == 2) &
             df_p['termino'].notna() &
             (~df_p['nome'].isin(SKIP_NAMES))
         ].head(8)
 
-    marcos = []
-    for _, m in df_miles.iterrows():
-        concluido = m['pct'] >= 100
-        atrasado  = (
-            pd.notna(m['baseline_termino']) and
-            pd.notna(m['termino']) and
-            m['termino'] > m['baseline_termino']
-        )
-        marcos.append({
-            "nome":      m['nome'][:60],
-            "termino":   _ts(m['termino']),
-            "baseline":  _ts(m['baseline_termino']),
-            "pct":       float(m['pct']),
-            "status":    m['status'][:30] if m['status'] else "",
-            "resp":      m['resp'][:30] if m['resp'] else "",
-            "nivel":     int(m['nivel']),
-            "concluido": concluido,
-            "atrasado":  atrasado,
-        })
+    # Se marcos já foram preenchidos pelos curados, não sobrescrever
+    if not marcos:
+        for _, m in df_miles.iterrows():
+            concluido = m['pct'] >= 100
+            atrasado  = (
+                pd.notna(m['baseline_termino']) and
+                pd.notna(m['termino']) and
+                m['termino'] > m['baseline_termino']
+            )
+            marcos.append({
+                "nome":      m['nome'][:60],
+                "termino":   _ts(m['termino']),
+                "baseline":  _ts(m['baseline_termino']),
+                "pct":       float(m['pct']),
+                "status":    m['status'][:30] if m['status'] else "",
+                "resp":      m['resp'][:30] if m['resp'] else "",
+                "nivel":     int(m['nivel']),
+                "concluido": concluido,
+                "atrasado":  atrasado,
+            })
 
     # Subfases L2 para resumo no modal da barra
     subfases = []
@@ -597,7 +591,7 @@ for proj in sorted(df_view['projeto'].unique()):
 if proj_data:
     hoje_ts     = int(pd.Timestamp(date.today()).normalize().value // 1_000_000)
     proj_json   = _json.dumps(proj_data, ensure_ascii=False)
-    row_h       = 64
+    row_h       = 90
     total_h     = len(proj_data) * row_h + 130
 
     html_roadmap = f"""<!DOCTYPE html>
@@ -671,15 +665,16 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
   display:flex;flex-direction:column;align-items:center;
   cursor:pointer;z-index:15;
   transform:translateX(-50%);
+  pointer-events:all;
 }}
 /* MARCO DIAMANTE */
 .marco{{
-  width:14px;height:14px;
+  width:13px;height:13px;
   transform:rotate(45deg);
   transition:transform .15s,filter .15s;
   border-radius:2px;flex-shrink:0;
 }}
-.marco-wrap:hover .marco{{transform:rotate(45deg) scale(1.6);filter:brightness(1.4);}}
+.marco-wrap:hover .marco{{transform:rotate(45deg) scale(1.5);filter:brightness(1.4);}}
 .marco.done{{background:#22C55E;box-shadow:0 0 8px #22C55E88;}}
 .marco.ok  {{background:#3B82F6;box-shadow:0 0 6px #3B82F666;}}
 .marco.late{{
@@ -687,18 +682,19 @@ body{{background:#0F1623;color:#E2E8F0;overflow-x:hidden;}}
   animation:pulse 1.4s ease-in-out infinite;
 }}
 @keyframes pulse{{0%,100%{{box-shadow:0 0 8px #EF444499;}}50%{{box-shadow:0 0 20px #EF4444CC;}}}}
-/* MARCO LABEL */
+/* MARCO LABEL — horizontal, abaixo da barra */
 .marco-lbl{{
-  margin-top:6px;
-  font-size:8px;font-weight:600;color:#94A3B8;
+  margin-top:5px;
+  font-size:7.5px;font-weight:600;color:#94A3B8;
   white-space:nowrap;
-  writing-mode:vertical-rl;
-  transform:rotate(180deg);
-  max-height:60px;overflow:hidden;text-overflow:ellipsis;
-  line-height:1.2;letter-spacing:.02em;
+  writing-mode:horizontal-tb;
+  transform:none;
+  max-width:90px;
+  overflow:hidden;text-overflow:ellipsis;
+  line-height:1.3;letter-spacing:.01em;
   text-align:center;
 }}
-.marco-wrap:hover .marco-lbl{{color:#CBD5E1;}}
+.marco-wrap:hover .marco-lbl{{color:#E2E8F0;}}
 
 /* MODAL */
 #modal-overlay{{
@@ -930,7 +926,9 @@ PROJECTS.forEach((p,i)=>{{
     const wrap=document.createElement('div');
     wrap.className='marco-wrap';
     wrap.style.left=`${{xp}}%`;
-    wrap.style.top='20px';
+    // Posiciona o diamante no centro vertical da barra (top=16px, h=32px → centro=32px)
+    // O wrap começa no topo do diamante; label fica naturalmente abaixo
+    wrap.style.top='24px';
 
     const mk=document.createElement('div');
     mk.className='marco '+(m.concluido?'done':m.atrasado?'late':'ok');
@@ -938,8 +936,9 @@ PROJECTS.forEach((p,i)=>{{
 
     const lbl=document.createElement('div');
     lbl.className='marco-lbl';
-    // Truncate to ~18 chars for vertical label
-    lbl.textContent=m.nome.length>18?m.nome.slice(0,18)+'…':m.nome;
+    // Full name — CSS truncates with ellipsis at max-width:90px
+    lbl.textContent=m.nome;
+    lbl.title=m.nome;
     wrap.appendChild(lbl);
 
     wrap.addEventListener('click', e=>{{ e.stopPropagation(); openModalMarco(m, p); }});
