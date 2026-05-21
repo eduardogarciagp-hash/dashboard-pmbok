@@ -268,22 +268,40 @@ PROJ_CSS = {
 # 5. SIDEBAR — UPLOAD & FILTROS
 # ──────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 📊 Dashboard PMO")
-    st.markdown("---")
-    st.markdown("### 📂 Importar Projetos (XML)")
-    st.caption("Exporte pelo MS Project: Arquivo → Salvar Como → XML do Project")
+    st.markdown('## 📊 Dashboard PMO')
+    st.markdown('---')
+
+    # ── Importar XML ──────────────────────────────────────────────────────────
+    st.markdown('### 📂 Importar Projetos (XML)')
+    st.caption('Exporte pelo MS Project: Arquivo → Salvar Como → XML do Project')
     uploaded = st.file_uploader(
-        "Selecione um ou mais arquivos .xml",
-        type=["xml"],
+        'Selecione um ou mais arquivos .xml',
+        type=['xml'],
         accept_multiple_files=True,
     )
-    st.markdown("---")
-    data_ref = st.date_input("📅 Data de Referência", value=date.today())
-    st.markdown("---")
-    filtro_proj = st.multiselect("🔍 Filtrar por Projeto", options=[], key="filtro_proj")
-    spi_limiar  = st.slider("⚠️ Limiar SPI (crítico)", 0.70, 1.00, 0.95, 0.01)
-    st.markdown("---")
-    usar_ia = st.toggle("🤖 Gerar insights com IA (Claude API)", value=False)
+    st.markdown('---')
+
+    # ── Configurações ─────────────────────────────────────────────────────────
+    st.markdown('### ⚙️ Configurações')
+    data_ref    = st.date_input('📅 Data de Referência', value=date.today())
+    filtro_proj = st.multiselect('🔍 Filtrar por Projeto', options=[], key='filtro_proj')
+    spi_limiar  = st.slider('⚠️ Limiar IDP (crítico)', 0.70, 1.00, 0.95, 0.01)
+    usar_ia     = st.toggle('🤖 Insights com IA (Claude API)', value=False)
+    st.markdown('---')
+
+    # ── Edição de IDPs por projeto ────────────────────────────────────────────
+    st.markdown('### ✏️ Editar IDPs por Projeto')
+    st.caption('Altere os valores abaixo para recalcular os KPIs.')
+    if 'idp_override' not in st.session_state:
+        st.session_state.idp_override = {}
+    _sb_idp_override = {}
+    # Placeholder — preenchido após carregar dados (ver abaixo)
+    _sb_idp_placeholder = st.empty()
+    st.markdown('---')
+
+    # ── Exportar ──────────────────────────────────────────────────────────────
+    st.markdown('### 📥 Exportar')
+    _sb_export_placeholder = st.empty()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -362,55 +380,33 @@ for _, r in _l1_rows.iterrows():
 _vals = [v for v in idp_por_projeto.values() if v is not None]
 spi_medio_calc = round(sum(_vals) / len(_vals), 4) if _vals else None
 
-# ── Modo edição ───────────────────────────────────────────────────────────────
-if 'kpi_edit' not in st.session_state:
-    st.session_state.kpi_edit = False
-if 'kpi_override' not in st.session_state:
-    st.session_state.kpi_override = {}
+# ── IDP por projeto: inputs no sidebar, lidos aqui ──────────────────────────
+if 'idp_override' not in st.session_state:
+    st.session_state.idp_override = {}
 
-col_title, col_btn = st.columns([8, 1])
-with col_btn:
-    if st.button("✏️ Editar" if not st.session_state.kpi_edit else "✅ Salvar", use_container_width=True):
-        st.session_state.kpi_edit = not st.session_state.kpi_edit
+# Renderiza inputs no sidebar via placeholder
+idp_por_projeto_final = {}
+with _sb_idp_placeholder.container():
+    for proj, idp_calc in idp_por_projeto.items():
+        idp_editado = st.number_input(
+            proj[:28],
+            value=float(st.session_state.idp_override.get(proj, idp_calc or 0.0)),
+            step=0.01, format='%.2f',
+            key=f'idp_input_{proj}'
+        )
+        st.session_state.idp_override[proj] = idp_editado
+        idp_por_projeto_final[proj] = idp_editado
 
-if st.session_state.kpi_edit:
-    st.caption("Edite os valores abaixo e clique em ✅ Salvar para aplicar.")
-    ec1, ec2, ec3, ec4, ec5 = st.columns(5)
-    ov = st.session_state.kpi_override
-    with ec1:
-        ov['n_projetos']  = st.number_input("Projetos Ativos",    value=int(ov.get('n_projetos',  n_projetos_calc)),  step=1, min_value=0)
-    with ec2:
-        ov['pct_media']   = st.number_input("Conclusão Média (%)", value=float(ov.get('pct_media',  round(pct_media_calc,1))), step=0.1, format="%.1f")
-    with ec3:
-        ov['spi_medio']   = st.number_input("IDP Portfólio",       value=float(ov.get('spi_medio',  spi_medio_calc or 0.0)), step=0.01, format="%.2f")
-    with ec4:
-        ov['crits_count'] = st.number_input("Projetos Críticos",   value=int(ov.get('crits_count', crits_count_calc)), step=1, min_value=0)
-    with ec5:
-        ov['marcos_tot']  = st.number_input("Marcos no Portfólio", value=int(ov.get('marcos_tot',  marcos_tot_calc)),  step=1, min_value=0)
 
-    st.caption("IDP por projeto:")
-    idp_cols = st.columns(max(1, len(idp_por_projeto)))
-    for i, (proj, idp_calc) in enumerate(idp_por_projeto.items()):
-        with idp_cols[i]:
-            ov[f'idp_{proj}'] = st.number_input(
-                proj[:25], value=float(ov.get(f'idp_{proj}', idp_calc or 0.0)),
-                step=0.01, format="%.2f", key=f"idp_edit_{proj}"
-            )
+# KPIs recalculados a partir dos IDPs editados
+_idp_vals   = [v for v in idp_por_projeto_final.values() if v]
+spi_medio   = round(sum(_idp_vals) / len(_idp_vals), 4) if _idp_vals else None
+crits_count = sum(1 for v in idp_por_projeto_final.values() if v and v < spi_limiar)
+n_projetos  = len(idp_por_projeto_final)
+pct_media   = pct_media_calc
+marcos_tot  = marcos_tot_calc
 
-# ── Lê valores (override ou calculado) ───────────────────────────────────────
-ov = st.session_state.kpi_override
-n_projetos  = int(ov.get('n_projetos',  n_projetos_calc))
-pct_media   = float(ov.get('pct_media',  pct_media_calc))
-spi_medio   = float(ov.get('spi_medio',  spi_medio_calc or 0.0)) or None
-crits_count = int(ov.get('crits_count', crits_count_calc))
-marcos_tot  = int(ov.get('marcos_tot',  marcos_tot_calc))
-
-idp_por_projeto_final = {
-    proj: float(ov.get(f'idp_{proj}', idp_por_projeto.get(proj) or 0.0))
-    for proj in idp_por_projeto
-}
-
-# ── Renderiza KPI cards ───────────────────────────────────────────────────────
+# KPI cards (primeira linha)
 c1, c2, c3, c4, c5 = st.columns(5)
 with c1: kpi_card("PROJETOS ATIVOS", str(n_projetos), "monitorados", "#2563EB")
 with c2: kpi_card("CONCLUSÃO MÉDIA", f"{pct_media:.1f}%", "do portfólio", "#059669")
@@ -421,28 +417,20 @@ with c3:
 with c4: kpi_card("PROJETOS CRÍTICOS", str(crits_count), f"com IDP < {spi_limiar}", "#DC2626")
 with c5: kpi_card("MARCOS NO PORTFÓLIO", str(marcos_tot), "identificados", "#7C3AED")
 
-# ── Linha de IDP por projeto com carinhas ────────────────────────────────────
-if idp_por_projeto_final:
-    cols_idp = st.columns(len(idp_por_projeto_final))
-    for i, (proj, idp_val) in enumerate(idp_por_projeto_final.items()):
-        face, cor_face, label_face = idp_face(idp_val)
-        idp_txt = f"{idp_val:.2f}" if idp_val is not None else "N/A"
-        with cols_idp[i]:
-            st.markdown(f"""
-<div style="background:#fff;border-radius:10px;padding:12px 16px;
+# Carinhas por projeto (segunda linha)
+cols_face = st.columns(len(idp_por_projeto_final))
+for i, (proj, idp_val) in enumerate(idp_por_projeto_final.items()):
+    face, cor_face, label_face = idp_face(idp_val)
+    idp_txt = f"{idp_val:.2f}" if idp_val else "N/A"
+    with cols_face[i]:
+        st.markdown(f"""
+<div style='background:#fff;border-radius:10px;padding:10px 16px 8px 16px;
             border-left:5px solid {cor_face};box-shadow:0 1px 6px rgba(0,0,0,.08);
-            text-align:center;margin-top:8px;">
-  <div style="font-size:10px;font-weight:600;color:#9AA5BE;
-              text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">
-    {proj}
-  </div>
-  <div style="font-size:28px;line-height:1.1;">{face}</div>
-  <div style="font-size:20px;font-weight:700;color:{cor_face};margin:2px 0;">
-    IDP {idp_txt}
-  </div>
-  <div style="font-size:11px;color:{cor_face};font-weight:600;">{label_face}</div>
+            text-align:center;'>
+  <div style='font-size:28px;line-height:1.1;'>{face}</div>
+  <div style='font-size:18px;font-weight:700;color:{cor_face};margin:2px 0;'>IDP {idp_txt}</div>
+  <div style='font-size:11px;color:{cor_face};font-weight:600;'>{label_face}</div>
 </div>""", unsafe_allow_html=True)
-
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
 
 
@@ -1010,49 +998,6 @@ function openModalMarco(m, p){{
 
     components.html(html_roadmap, height=total_h, scrolling=False)
 
-st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 10. SECTION EVM — MATRIZ POR PROJETO
-# ──────────────────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">Section EVM — Análise de Valor Agregado por Projeto</div>',
-            unsafe_allow_html=True)
-
-df_evm = df_view[
-    (df_view['nivel'] <= 2) &
-    (~df_view['nome'].isin(['MS Project_Teste_Formulas_2', 'NOME DO PROJETO']))
-].copy()
-
-if not df_evm.empty:
-    tbl_data = []
-    for _, row in df_evm.iterrows():
-        spi_v = row['spi_num']
-        tbl_data.append({
-            'Projeto':   row['projeto'],
-            'Fase/Resumo': row['nome'][:55],
-            'Nív': int(row['nivel']),
-            '% Concl.': f"{row['pct']:.0f}%",
-            'PV (dias)': f"{row['pv']:.0f}",
-            'EV (dias)': f"{row['ev']:.0f}",
-            'SPI': f"{spi_v:.2f}" if pd.notna(spi_v) else "N/A",
-            'Alerta': ('🔴 CRÍTICO' if (pd.notna(spi_v) and spi_v < 0.80)
-                       else ('⚠️ ATENÇÃO' if (pd.notna(spi_v) and spi_v < spi_limiar)
-                             else '✅ OK')),
-            'Término': row['termino'].strftime('%d/%m/%Y') if pd.notna(row['termino']) else '-',
-        })
-    st.dataframe(
-        pd.DataFrame(tbl_data),
-        use_container_width=True, hide_index=True,
-        column_config={
-            'SPI': st.column_config.TextColumn('SPI'),
-            'Alerta': st.column_config.TextColumn('Alerta'),
-        }
-    )
-
-st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 # 11. SECTION 2 — GOVERNANÇA DE INCERTEZAS (separada por projeto)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1171,16 +1116,17 @@ def gerar_excel(df_base, df_crits):
         df_evm_exp.to_excel(writer, sheet_name='EVM_Resumo', index=False)
     return output.getvalue()
 
-col_btn, _ = st.columns([1, 4])
-with col_btn:
-    if st.button("📥 Gerar Excel Executivo"):
+# ── Export in sidebar ───────────────────────────────────────────────────────
+with _sb_export_placeholder.container():
+    if st.button('📥 Gerar Excel Executivo', use_container_width=True):
         excel_bytes = gerar_excel(df_view, df_criticos)
         st.download_button(
-            "⬇️ Baixar .xlsx",
+            '⬇️ Baixar .xlsx',
             data=excel_bytes,
-            file_name=f"relatorio_pmo_{date.today().isoformat()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            file_name=f'relatorio_pmo_{date.today().isoformat()}.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
+
 
 st.markdown(
     f"<p style='text-align:center;color:#C0C8D8;font-size:10px;margin-top:30px'>"
