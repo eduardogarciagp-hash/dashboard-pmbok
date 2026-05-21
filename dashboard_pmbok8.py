@@ -353,34 +353,77 @@ st.markdown(
 _apresentando = st.session_state.modo_apresentacao
 
 # JS: colapsa sidebar no modo apresentação, expande no modo edição
+# JS robusto: colapsa/expande sidebar testando múltiplos seletores
 _collapsed = 'true' if _apresentando else 'false'
 st.components.v1.html(f"""
 <script>
 (function(){{
-  var collapsed = {_collapsed};
-  var tries = 0;
-  var t = setInterval(function(){{
-    tries++;
-    if(tries > 30){{ clearInterval(t); return; }}
-    var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
-    if(!sidebar) return;
-    var isOpen = sidebar.getAttribute('aria-expanded') !== 'false' && 
-                 window.parent.document.querySelector('[data-testid="stSidebarCollapsedControl"]') === null;
-    if(collapsed && isOpen){{
-      var btn = window.parent.document.querySelector(
-        'section[data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"] > div > svg'
-      );
-      if(!btn) btn = window.parent.document.querySelector(
-        '[data-testid="stSidebarCollapseButton"]'
-      );
-      if(btn){{ btn.closest('button').click(); clearInterval(t); }}
-    }} else if(!collapsed && !isOpen){{
-      var openBtn = window.parent.document.querySelector('[data-testid="stSidebarCollapsedControl"] button');
-      if(openBtn){{ openBtn.click(); clearInterval(t); }}
-    }} else {{
-      clearInterval(t);
+  var want_collapsed = {_collapsed};
+  var attempts = 0;
+
+  function findCollapseBtn() {{
+    var doc = window.parent.document;
+    // Seletores em ordem de prioridade (Streamlit Cloud + local)
+    var selectors = [
+      '[data-testid="stSidebarCollapseButton"] button',
+      '[data-testid="stSidebarCollapseButton"]',
+      'section[data-testid="stSidebar"] button:first-child',
+      '[data-testid="stSidebar"] button',
+    ];
+    for (var i = 0; i < selectors.length; i++) {{
+      var el = doc.querySelector(selectors[i]);
+      if (el) return el;
     }}
-  }}, 150);
+    return null;
+  }}
+
+  function findExpandBtn() {{
+    var doc = window.parent.document;
+    var selectors = [
+      '[data-testid="stSidebarCollapsedControl"] button',
+      '[data-testid="stSidebarCollapsedControl"]',
+      '[aria-label="Open sidebar"]',
+      '[aria-label="Abrir barra lateral"]',
+    ];
+    for (var i = 0; i < selectors.length; i++) {{
+      var el = doc.querySelector(selectors[i]);
+      if (el) return el;
+    }}
+    return null;
+  }}
+
+  function isSidebarOpen() {{
+    var doc = window.parent.document;
+    var sidebar = doc.querySelector('[data-testid="stSidebar"]');
+    if (!sidebar) return true;
+    // Collapsed control visível = sidebar fechada
+    var collapsedCtrl = doc.querySelector('[data-testid="stSidebarCollapsedControl"]');
+    if (collapsedCtrl) return false;
+    // aria-expanded = false = fechada
+    if (sidebar.getAttribute('aria-expanded') === 'false') return false;
+    // Verifica largura
+    var rect = sidebar.getBoundingClientRect();
+    if (rect.width < 50) return false;
+    return true;
+  }}
+
+  var timer = setInterval(function() {{
+    attempts++;
+    if (attempts > 40) {{ clearInterval(timer); return; }}
+
+    var open = isSidebarOpen();
+
+    if (want_collapsed && open) {{
+      var btn = findCollapseBtn();
+      if (btn) {{ btn.click(); clearInterval(timer); }}
+    }} else if (!want_collapsed && !open) {{
+      var btn2 = findExpandBtn();
+      if (btn2) {{ btn2.click(); clearInterval(timer); }}
+    }} else {{
+      // Estado já correto
+      clearInterval(timer);
+    }}
+  }}, 200);
 }})();
 </script>
 """, height=0)
