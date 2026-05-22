@@ -31,6 +31,22 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 *, .stApp { font-family: 'Inter', sans-serif; }
 .stApp { background: #EEF5EE; }
+/* Caixas de texto brancas na Section C */
+.stTextArea textarea {
+    background-color: #FFFFFF !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 6px !important;
+}
+/* Barra do expander (nome do projeto) branca */
+.stExpander {
+    background-color: #FFFFFF !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 8px !important;
+}
+.stExpander > details > summary {
+    background-color: #FFFFFF !important;
+    border-radius: 8px !important;
+}
 .section-title {
     color:#1B2A4A; font-size:14px; font-weight:700;
     border-left:4px solid #2563EB; padding-left:10px;
