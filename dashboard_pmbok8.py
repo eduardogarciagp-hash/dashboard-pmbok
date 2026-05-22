@@ -30,7 +30,7 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 *, .stApp { font-family: 'Inter', sans-serif; }
-.stApp { background: #F4F6FB; }
+.stApp { background: #EEF5EE; }
 .section-title {
     color:#1B2A4A; font-size:14px; font-weight:700;
     border-left:4px solid #2563EB; padding-left:10px;
