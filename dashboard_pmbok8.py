@@ -764,7 +764,7 @@ for proj in PROJETOS_FIXOS:
     idp_val = idp_por_projeto_final.get(proj)
 
     # Cor neutra — barra cinza, progresso por %
-    bar_cor   = "#4CAF7D"
+    bar_cor   = "#CBD5E1"
     fase_nome = ""
 
     # ── Marcos curados por análise PMO PMBOK 8ª Edição ──────────────────────────
@@ -1012,7 +1012,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 /* MARCO LABEL — horizontal, bem abaixo da barra */
 .marco-lbl{{
   margin-top:0;
-  font-size:10px;font-weight:600;color:#64748B;
+  font-size:10px;font-weight:600;color:#FFFFFF;
   white-space:nowrap;
   writing-mode:horizontal-tb;
   transform:none;
@@ -1376,7 +1376,7 @@ PROJECTS.forEach((p,i)=>{{
     const barWrap=document.createElement('div');
     barWrap.style.cssText=`position:absolute;top:18px;height:28px;border-radius:6px;
       overflow:hidden;cursor:pointer;
-      background:#D1EAD1;border:1px solid #A8D5A8;
+      background:#F1F5F9;border:1px solid #CBD5E1;
       left:${{lpAll}}%;width:${{rpAll-lpAll}}%;`;
     barWrap.addEventListener('click',()=>openModal(p));
     barWrap.title='Clique para detalhes';
@@ -1385,7 +1385,7 @@ PROJECTS.forEach((p,i)=>{{
     const fill=document.createElement('div');
     fill.style.cssText=`position:absolute;top:0;left:0;bottom:0;
       width:${{p.pct}}%;
-      background:#4CAF7D;
+      background:#94A3B8;
       border-radius:5px 0 0 5px;`;
     barWrap.appendChild(fill);
 
