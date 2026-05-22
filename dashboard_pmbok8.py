@@ -43,7 +43,7 @@ st.markdown("""
 }
 .kpi-label { color:#9AA5BE; font-size:11px; font-weight:600;
              text-transform:uppercase; letter-spacing:.07em; }
-.kpi-value { color:#4A5568; font-size:28px; font-weight:700; margin:4px 0 2px 0; }
+.kpi-value { color:#4A5568 !important; font-size:28px; font-weight:700; margin:4px 0 2px 0; }
 .kpi-sub   { color:#6B7A99; font-size:11px; }
 .badge-green  { background:#D4EDDA; color:#1A6B3A; padding:2px 8px;
                 border-radius:12px; font-size:11px; font-weight:600; }
