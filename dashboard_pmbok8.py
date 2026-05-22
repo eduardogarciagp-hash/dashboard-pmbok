@@ -436,8 +436,8 @@ st.components.v1.html(f"""
   body{{margin:0;padding:0;background:transparent;font-family:'Inter',sans-serif;}}
   .hdr{{display:flex;align-items:center;justify-content:space-between;
         padding:4px 0 6px 0;}}
-  .hdr h1{{color:#1B2A4A;font-size:22px;font-weight:700;margin:0;line-height:1.2;}}
-  .hdr p{{color:#9AA5BE;font-size:11px;margin:3px 0 0 0;}}
+  .hdr h1{{color:#1B2A4A;font-size:30px;font-weight:700;margin:0;line-height:1.2;}}
+  .hdr p{{color:#9AA5BE;font-size:13px;margin:4px 0 0 0;}}
   .hdr img{{height:104px;object-fit:contain;opacity:0.92;}}
 </style>
 <div class='hdr'>
