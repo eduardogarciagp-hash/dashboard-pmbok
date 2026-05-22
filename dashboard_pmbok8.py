@@ -1991,16 +1991,14 @@ for proj in projetos_gov:
                 causa   = linha.get("causa", "")
                 plano   = linha.get("plano", "")
                 # Só exibe linhas com conteúdo
-                if not any([impacto, causa, plano]): continue
+                if not any([impacto, plano]): continue
                 if idx > 0:
                     st.markdown("<hr style='border:1px solid #F0F2F6;margin:14px 0'>", unsafe_allow_html=True)
                 st.markdown(f"**{titulo}**", unsafe_allow_html=False)
-                c1, c2, c3 = st.columns(3)
+                c1, c2 = st.columns(2)
                 with c1:
                     st.markdown(f"<div style='font-size:10px;font-weight:700;color:#9AA5BE;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px'>📌 Impacto no Negócio</div><div style='font-size:13px;color:#1B2A4A;line-height:1.6'>{impacto or '—'}</div>", unsafe_allow_html=True)
                 with c2:
-                    st.markdown(f"<div style='font-size:10px;font-weight:700;color:#9AA5BE;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px'>🔍 Causa Raiz</div><div style='font-size:13px;color:#1B2A4A;line-height:1.6'>{causa or '—'}</div>", unsafe_allow_html=True)
-                with c3:
                     st.markdown(f"<div style='font-size:10px;font-weight:700;color:#9AA5BE;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px'>✅ Plano de Ação</div><div style='font-size:13px;color:#1B2A4A;line-height:1.6'>{plano or '—'}</div>", unsafe_allow_html=True)
 
             st.markdown("")
@@ -2053,21 +2051,15 @@ for proj in projetos_gov:
 
                 _hmax = max(
                     _auto_h(linhas[idx].get("impacto","")),
-                    _auto_h(linhas[idx].get("causa","")),
                     _auto_h(linhas[idx].get("plano","")),
                 )
-                c1, c2, c3 = st.columns(3)
+                c1, c2 = st.columns(2)
                 with c1:
                     linhas[idx]["impacto"] = st.text_area("📌 Impacto no Negócio",
                         value=linhas[idx].get("impacto",""), height=_hmax,
                         placeholder="Descreva o impacto no negócio...",
                         key=f"impacto_{k}_{idx}")
                 with c2:
-                    linhas[idx]["causa"] = st.text_area("🔍 Causa Raiz (Hipótese)",
-                        value=linhas[idx].get("causa",""), height=_hmax,
-                        placeholder="Descreva a causa raiz identificada...",
-                        key=f"causa_{k}_{idx}")
-                with c3:
                     linhas[idx]["plano"] = st.text_area("✅ Plano de Ação",
                         value=linhas[idx].get("plano",""), height=_hmax,
                         placeholder="Ações, responsáveis e prazo...",
