@@ -659,21 +659,42 @@ def _ts(dt):
 import json as _json
 
 proj_data = []
-for proj in sorted(df_view['projeto'].unique()):
-    df_p = df_view[df_view['projeto'] == proj]
+for proj in PROJETOS_FIXOS:
+    df_p = df_view[df_view['projeto'] == proj] if not df_view.empty else pd.DataFrame()
 
     # Linha raiz L1 do projeto para datas início/fim
-    l1 = df_p[
-        (df_p['nivel'] == 1) &
-        (~df_p['nome'].isin(SKIP_NAMES)) &
-        df_p['inicio'].notna() &
-        df_p['termino'].notna()
-    ]
-    if l1.empty:
-        l1 = df_p[df_p['inicio'].notna() & df_p['termino'].notna()]
-    if l1.empty: continue
+    l1 = pd.DataFrame()
+    if not df_p.empty:
+        l1 = df_p[
+            (df_p['nivel'] == 1) &
+            (~df_p['nome'].isin(SKIP_NAMES)) &
+            df_p['inicio'].notna() &
+            df_p['termino'].notna()
+        ]
+        if l1.empty:
+            l1 = df_p[df_p['inicio'].notna() & df_p['termino'].notna()]
 
-    r0      = l1.iloc[0]
+    # Se sem datas: usa dados manuais do sidebar ou placeholder
+    if l1.empty:
+        m = st.session_state.proj_manual.get(proj, {})
+        ini_s = m.get('inicio', '')
+        fim_s = m.get('termino', '')
+        try:
+            ini_ts = pd.Timestamp(ini_s) if ini_s else pd.Timestamp('2026-01-01')
+            fim_ts = pd.Timestamp(fim_s) if fim_s else pd.Timestamp('2026-12-31')
+        except:
+            ini_ts = pd.Timestamp('2026-01-01')
+            fim_ts = pd.Timestamp('2026-12-31')
+        pct_v = float(m.get('pct', 0))
+        l1 = pd.DataFrame([{
+            'projeto': proj, 'nome': proj, 'nivel': 1,
+            'pct': pct_v, 'spi_num': None,
+            'inicio': ini_ts, 'termino': fim_ts,
+            'baseline_termino': pd.NaT,
+            'is_milestone': False, 'is_summary': False,
+        }])
+
+    r0 = l1.iloc[0]
     idp_val = idp_por_projeto_final.get(proj)
 
     # Cor neutra — barra cinza, progresso por %
