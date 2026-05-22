@@ -1976,27 +1976,270 @@ for proj in projetos_gov:
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
 
-def gerar_excel(df_base, df_crits):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Aba 1 — Tarefas completas
-        df_base.to_excel(writer, sheet_name='Tarefas', index=False)
-        # Aba 2 — Críticos
-        df_crits.to_excel(writer, sheet_name='Pontos_Criticos', index=False)
-        # Aba 3 — EVM Resumo
-        df_evm_exp = df_base[df_base['nivel'] <= 2].copy()
-        df_evm_exp.to_excel(writer, sheet_name='EVM_Resumo', index=False)
-    return output.getvalue()
+def gerar_pdf_executivo(df_view, idp_por_projeto, gov_data, data_ref):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+        HRFlowable, KeepTogether
+    )
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 
-# ── Export in sidebar ───────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    W, H = A4
+    margin = 1.8 * cm
+
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+        leftMargin=margin, rightMargin=margin,
+        topMargin=margin, bottomMargin=margin,
+        title="Dashboard Executivo - Digital")
+
+    # ── Paleta ──────────────────────────────────────────────────────────────
+    NAVY    = colors.HexColor("#1B2A4A")
+    BLUE    = colors.HexColor("#2563EB")
+    SLATE   = colors.HexColor("#64748B")
+    LGRAY   = colors.HexColor("#F1F5F9")
+    MGRAY   = colors.HexColor("#CBD5E1")
+    GREEN   = colors.HexColor("#059669")
+    AMBER   = colors.HexColor("#D97706")
+    RED     = colors.HexColor("#DC2626")
+    WHITE   = colors.white
+
+    def cor_idp(v):
+        if v is None: return SLATE
+        if v >= 0.99: return GREEN
+        if v >= 0.95: return AMBER
+        return RED
+
+    def label_idp(v):
+        if v is None: return "N/A"
+        if v >= 0.99: return "Em dia"
+        if v >= 0.95: return "Em alerta"
+        return "Em atraso"
+
+    # ── Estilos ──────────────────────────────────────────────────────────────
+    def sty(name, **kw):
+        base = {
+            "fontName": "Helvetica", "fontSize": 9,
+            "textColor": NAVY, "leading": 13, "alignment": TA_LEFT
+        }
+        base.update(kw)
+        return ParagraphStyle(name, **base)
+
+    S_TITLE   = sty("title",  fontName="Helvetica-Bold", fontSize=18, textColor=NAVY, alignment=TA_LEFT, spaceAfter=2)
+    S_SUB     = sty("sub",    fontSize=8, textColor=SLATE)
+    S_SEC     = sty("sec",    fontName="Helvetica-Bold", fontSize=10, textColor=BLUE,
+                    borderPad=4, leftIndent=6, leading=16)
+    S_PROJ    = sty("proj",   fontName="Helvetica-Bold", fontSize=10, textColor=WHITE)
+    S_LABEL   = sty("label",  fontName="Helvetica-Bold", fontSize=7,  textColor=SLATE,
+                    leading=10)
+    S_VAL     = sty("val",    fontName="Helvetica-Bold", fontSize=20, textColor=NAVY,
+                    leading=22)
+    S_SMALL   = sty("small",  fontSize=8, textColor=SLATE, leading=11)
+    S_BODY    = sty("body",   fontSize=8.5, textColor=NAVY, leading=13)
+    S_TITULO  = sty("titulo", fontName="Helvetica-Bold", fontSize=9, textColor=NAVY, leading=13)
+    S_COL_HDR = sty("chdr",   fontName="Helvetica-Bold", fontSize=7.5, textColor=WHITE, alignment=TA_CENTER)
+
+    story = []
+
+    # ── CAPA ─────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 0.4*cm))
+    story.append(Paragraph("Dashboard Executivo - Digital", S_TITLE))
+    story.append(Paragraph(
+        f"PMBOK 8a Edicao  |  Referencia: {data_ref.strftime('%d/%m/%Y')}  |  "
+        f"Gerado em: {date.today().strftime('%d/%m/%Y')}",
+        S_SUB))
+    story.append(HRFlowable(width="100%", thickness=2, color=BLUE, spaceAfter=14))
+
+    # ── A. KPIs ───────────────────────────────────────────────────────────────
+    story.append(Paragraph("A. Governanca Estrategica - KPIs do Portfolio", S_SEC))
+    story.append(Spacer(1, 0.2*cm))
+
+    # Linha 1 — 5 KPIs
+    df_root = df_view[(df_view['nivel']==1) &
+                      (~df_view['nome'].isin(['MS Project_Teste_Formulas_2','NOME DO PROJETO']))]
+    n_proj     = df_view['projeto'].nunique()
+    pct_media  = df_root['pct'].mean() if not df_root.empty else 0
+    idp_vals   = [v for v in idp_por_projeto.values() if v]
+    spi_med    = round(sum(idp_vals)/len(idp_vals), 2) if idp_vals else None
+    crits_n    = sum(1 for v in idp_por_projeto.values() if v and v < 0.95)
+    marcos_n   = df_view[df_view['is_milestone']].shape[0]
+
+    def kpi_cell(label, val, sub=""):
+        return [
+            Paragraph(label, S_LABEL),
+            Paragraph(str(val), S_VAL),
+            Paragraph(sub, S_SMALL),
+        ]
+
+    kpi_data = [[
+        kpi_cell("PROJETOS ATIVOS", n_proj, "monitorados"),
+        kpi_cell("CONCLUSAO MEDIA", f"{pct_media:.1f}%", "do portfolio"),
+        kpi_cell("IDP PORTFOLIO", f"{spi_med:.2f}" if spi_med else "N/A", "indice de desempenho"),
+        kpi_cell("PROJETOS CRITICOS", crits_n, "IDP < 0,95"),
+        kpi_cell("MARCOS", marcos_n, "identificados"),
+    ]]
+    t_kpi = Table(kpi_data, colWidths=[(W - 2*margin)/5]*5)
+    t_kpi.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), LGRAY),
+        ('BOX',        (0,0), (-1,-1), 0.5, MGRAY),
+        ('INNERGRID',  (0,0), (-1,-1), 0.3, MGRAY),
+        ('VALIGN',     (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('LEFTPADDING', (0,0), (-1,-1), 10),
+    ]))
+    story.append(t_kpi)
+    story.append(Spacer(1, 0.3*cm))
+
+    # Linha 2 — IDP por projeto
+    if idp_por_projeto:
+        cols_w = (W - 2*margin) / len(idp_por_projeto)
+        idp_row = []
+        for proj, v in idp_por_projeto.items():
+            c = cor_idp(v)
+            cell = [
+                Paragraph(proj[:30], S_LABEL),
+                Paragraph(f"IDP {v:.2f}" if v else "N/A",
+                          ParagraphStyle("iv", fontName="Helvetica-Bold", fontSize=16,
+                                         textColor=c, leading=18)),
+                Paragraph(label_idp(v),
+                          ParagraphStyle("il", fontSize=8, textColor=c, leading=10)),
+            ]
+            idp_row.append(cell)
+        t_idp = Table([idp_row], colWidths=[cols_w]*len(idp_por_projeto))
+        t_idp.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), WHITE),
+            ('BOX',        (0,0), (-1,-1), 0.5, MGRAY),
+            ('INNERGRID',  (0,0), (-1,-1), 0.3, MGRAY),
+            ('TOPPADDING', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('LEFTPADDING', (0,0), (-1,-1), 10),
+            ('VALIGN',     (0,0), (-1,-1), 'TOP'),
+        ]))
+        # Color left border per project
+        for i, (proj, v) in enumerate(idp_por_projeto.items()):
+            c = cor_idp(v)
+            t_idp.setStyle(TableStyle([
+                ('LEFTPADDING', (i,0), (i,0), 8),
+                ('LINEBEFORE',  (i,0), (i,0), 4, c),
+            ]))
+        story.append(t_idp)
+
+    story.append(Spacer(1, 0.5*cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=MGRAY, spaceAfter=10))
+
+    # ── C. Governança ─────────────────────────────────────────────────────────
+    story.append(Paragraph("C. Governanca de Incertezas: Pontos Criticos e Planos de Acao", S_SEC))
+    story.append(Spacer(1, 0.2*cm))
+
+    PROJ_COLORS = {
+        "Business Data Fabric": colors.HexColor("#1B2A4A"),
+        "Cockpit Engenharia":   colors.HexColor("#1B4332"),
+        "Esteira Analytics":    colors.HexColor("#5C2D19"),
+    }
+
+    projetos_gov = sorted(df_view['projeto'].unique().tolist())
+    for proj in projetos_gov:
+        k = proj.replace(" ", "_").replace("/", "_")
+        linhas = gov_data.get(k, [])
+        linhas_com_conteudo = [l for l in linhas if any([l.get("impacto"), l.get("causa"), l.get("plano")])]
+        if not linhas_com_conteudo:
+            continue
+
+        idp_v = idp_por_projeto.get(proj)
+        idp_c = cor_idp(idp_v)
+        idp_s = f"IDP {idp_v:.2f}" if idp_v else "IDP N/A"
+        alerta = "Em atraso" if (idp_v and idp_v < 0.95) else ("Em alerta" if (idp_v and idp_v < 0.99) else "Em dia")
+        proj_color = PROJ_COLORS.get(proj, NAVY)
+
+        # Header do projeto
+        hdr_data = [[
+            Paragraph(proj, ParagraphStyle("ph", fontName="Helvetica-Bold", fontSize=11,
+                                           textColor=WHITE, leading=14)),
+            Paragraph(f"{idp_s} | {alerta}",
+                      ParagraphStyle("pi", fontName="Helvetica-Bold", fontSize=9,
+                                     textColor=WHITE, leading=14, alignment=TA_RIGHT)),
+        ]]
+        t_hdr = Table(hdr_data, colWidths=[(W-2*margin)*0.65, (W-2*margin)*0.35])
+        t_hdr.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0), (-1,-1), proj_color),
+            ('TOPPADDING',    (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('LEFTPADDING',   (0,0), (0,0), 12),
+            ('RIGHTPADDING',  (1,0), (1,0), 12),
+            ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+        story.append(KeepTogether([t_hdr]))
+
+        # Cada ponto crítico
+        for idx, linha in enumerate(linhas_com_conteudo):
+            titulo  = linha.get("titulo", f"Ponto Critico {idx+1}")
+            impacto = linha.get("impacto", "")
+            causa   = linha.get("causa", "")
+            plano   = linha.get("plano", "")
+
+            row_bg = LGRAY if idx % 2 == 0 else WHITE
+
+            titulo_cell = [Paragraph(titulo, S_TITULO)]
+            imp_cell    = [Paragraph("IMPACTO NO NEGOCIO", S_LABEL), Paragraph(impacto, S_BODY)]
+            causa_cell  = [Paragraph("CAUSA RAIZ", S_LABEL), Paragraph(causa, S_BODY)]
+            plano_cell  = [Paragraph("PLANO DE ACAO", S_LABEL), Paragraph(plano, S_BODY)]
+
+            cw = (W - 2*margin) / 3
+            t_row = Table([[imp_cell, causa_cell, plano_cell]],
+                          colWidths=[cw, cw, cw])
+            t_row.setStyle(TableStyle([
+                ('BACKGROUND',    (0,0), (-1,-1), row_bg),
+                ('VALIGN',        (0,0), (-1,-1), 'TOP'),
+                ('TOPPADDING',    (0,0), (-1,-1), 8),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+                ('LEFTPADDING',   (0,0), (-1,-1), 8),
+                ('RIGHTPADDING',  (0,0), (-1,-1), 8),
+                ('INNERGRID',     (0,0), (-1,-1), 0.3, MGRAY),
+                ('BOX',           (0,0), (-1,-1), 0.3, MGRAY),
+            ]))
+
+            titulo_tbl = Table([[Paragraph(titulo, S_TITULO)]], colWidths=[W-2*margin])
+            titulo_tbl.setStyle(TableStyle([
+                ('BACKGROUND',  (0,0), (-1,-1), row_bg),
+                ('TOPPADDING',  (0,0), (-1,-1), 8),
+                ('LEFTPADDING', (0,0), (-1,-1), 8),
+                ('LINEBEFORE',  (0,0), (-1,-1), 3, idp_c),
+            ]))
+
+            story.append(KeepTogether([titulo_tbl, t_row]))
+
+        story.append(Spacer(1, 0.4*cm))
+
+    # ── Rodapé ────────────────────────────────────────────────────────────────
+    story.append(HRFlowable(width="100%", thickness=0.5, color=MGRAY, spaceBefore=10))
+    story.append(Paragraph(
+        f"Dashboard Executivo - Digital  |  PMBOK 8a Edicao  |  PMI  |  {date.today().strftime('%d/%m/%Y')}",
+        ParagraphStyle("foot", fontSize=7, textColor=SLATE, alignment=TA_CENTER)
+    ))
+
+    doc.build(story)
+    buf.seek(0)
+    return buf.getvalue()
+
+# ── Export PDF in sidebar ─────────────────────────────────────────────────────
 with _sb_export_placeholder.container():
-    if st.button('📥 Gerar Excel Executivo', use_container_width=True):
-        excel_bytes = gerar_excel(df_view, df_criticos)
+    if st.button('📄 Gerar PDF', use_container_width=True):
+        with st.spinner('Gerando PDF executivo...'):
+            pdf_bytes = gerar_pdf_executivo(
+                df_view,
+                idp_por_projeto_final,
+                st.session_state.gov_data,
+                data_ref,
+            )
         st.download_button(
-            '⬇️ Baixar .xlsx',
-            data=excel_bytes,
-            file_name=f'relatorio_pmo_{date.today().isoformat()}.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            '⬇️ Baixar PDF',
+            data=pdf_bytes,
+            file_name=f'dashboard_executivo_{date.today().isoformat()}.pdf',
+            mime='application/pdf',
         )
 
 
