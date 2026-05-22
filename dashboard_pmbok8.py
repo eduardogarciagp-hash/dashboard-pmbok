@@ -764,7 +764,7 @@ for proj in PROJETOS_FIXOS:
     idp_val = idp_por_projeto_final.get(proj)
 
     # Cor neutra — barra cinza, progresso por %
-    bar_cor   = "#CBD5E1"
+    bar_cor   = "#4CAF7D"
     fase_nome = ""
 
     # ── Marcos curados por análise PMO PMBOK 8ª Edição ──────────────────────────
@@ -898,7 +898,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 .month-cell{{
   position:absolute;height:100%;
   display:flex;align-items:center;justify-content:center;
-  font-size:9px;font-weight:700;color:#475569;
+  font-size:11px;font-weight:700;color:#475569;
   text-transform:uppercase;letter-spacing:.07em;
   border-right:1px solid #1E2D42;
 }}
@@ -909,7 +909,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 .today-line{{position:absolute;top:0;bottom:0;width:2px;background:rgba(99,179,237,.6);pointer-events:none;z-index:5;}}
 .today-lbl{{
   position:absolute;top:4px;
-  font-size:9px;color:#63B3ED;font-weight:700;
+  font-size:11px;color:#63B3ED;font-weight:700;
   background:#0F1623;padding:1px 5px;border-radius:3px;white-space:nowrap;
   transform:translateX(-50%);
 }}
@@ -929,8 +929,8 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
   padding:0 10px 0 4px;
   z-index:3;
 }}
-.proj-label .pname{{font-size:11px;font-weight:700;color:#CBD5E1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
-.proj-label .pidp{{font-size:10px;font-weight:600;margin-top:2px;}}
+.proj-label .pname{{font-size:13px;font-weight:700;color:#CBD5E1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
+.proj-label .pidp{{font-size:12px;font-weight:600;margin-top:2px;}}
 
 /* TIMELINE AREA */
 .tl-area{{position:relative;flex:1;height:100%;}}
@@ -965,7 +965,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 }}
 .bar-txt{{
   position:relative;z-index:1;
-  font-size:9px;font-weight:700;color:rgba(255,255,255,.95);
+  font-size:11px;font-weight:700;color:rgba(255,255,255,.95);
   white-space:nowrap;padding:0 8px;letter-spacing:.02em;
 }}
 
@@ -1012,7 +1012,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 /* MARCO LABEL — horizontal, bem abaixo da barra */
 .marco-lbl{{
   margin-top:0;
-  font-size:8px;font-weight:600;color:#64748B;
+  font-size:10px;font-weight:600;color:#64748B;
   white-space:nowrap;
   writing-mode:horizontal-tb;
   transform:none;
@@ -1041,23 +1041,23 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
   padding:14px 18px;
   min-width:210px;
   box-shadow:0 16px 48px rgba(0,0,0,.8),0 0 0 1px rgba(99,179,237,.08);
-  font-size:11px;line-height:1.7;color:#E2E8F0;
+  font-size:13px;line-height:1.8;color:#E2E8F0;
   pointer-events:none;
   z-index:9999;
   white-space:normal;
   transition:opacity .1s;
 }}
 #marco-tip.show{{display:block;}}
-.mt-title{{font-size:12px;font-weight:700;color:#E2E8F0;margin-bottom:8px;
+.mt-title{{font-size:14px;font-weight:700;color:#E2E8F0;margin-bottom:8px;
            border-bottom:1px solid #2D3F55;padding-bottom:6px;
            display:flex;align-items:center;gap:6px;}}
 .mt-diamond{{width:9px;height:9px;transform:rotate(45deg);
              border-radius:1px;flex-shrink:0;display:inline-block;}}
 .mt-row{{display:flex;justify-content:space-between;gap:20px;margin-bottom:3px;}}
-.mt-label{{color:#475569;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}}
+.mt-label{{color:#475569;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}}
 .mt-val{{color:#CBD5E1;font-weight:600;text-align:right;}}
 .mt-badge{{display:inline-block;padding:2px 10px;border-radius:10px;
-           font-size:10px;font-weight:700;margin-top:8px;}}
+           font-size:12px;font-weight:700;margin-top:8px;}}
 
 /* MODAL */
 #modal-overlay{{
@@ -1086,7 +1086,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 .modal-kpi{{
   background:#0F1E2E;border-radius:8px;padding:10px 14px;flex:1;min-width:110px;
 }}
-.modal-kpi .mk-label{{font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.07em;}}
+.modal-kpi .mk-label{{font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.07em;}}
 .modal-kpi .mk-val  {{font-size:18px;font-weight:700;color:#E2E8F0;margin-top:2px;}}
 .modal-kpi .mk-sub  {{font-size:10px;color:#64748B;}}
 .modal-section-title{{font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;}}
@@ -1110,7 +1110,7 @@ body{{background:#0F1623;color:#E2E8F0;overflow:visible;}}
 
 /* LEGENDA */
 #legend{{display:flex;gap:18px;flex-wrap:wrap;padding:10px 0 0 0;}}
-.leg{{display:flex;align-items:center;gap:5px;font-size:9px;color:#475569;}}
+.leg{{display:flex;align-items:center;gap:5px;font-size:11px;color:#475569;}}
 .leg-d{{width:9px;height:9px;transform:rotate(45deg);border-radius:1px;flex-shrink:0;}}
 .leg-b{{width:20px;height:7px;border-radius:2px;flex-shrink:0;}}
 
@@ -1376,7 +1376,7 @@ PROJECTS.forEach((p,i)=>{{
     const barWrap=document.createElement('div');
     barWrap.style.cssText=`position:absolute;top:18px;height:28px;border-radius:6px;
       overflow:hidden;cursor:pointer;
-      background:#F1F5F9;border:1px solid #CBD5E1;
+      background:#D1EAD1;border:1px solid #A8D5A8;
       left:${{lpAll}}%;width:${{rpAll-lpAll}}%;`;
     barWrap.addEventListener('click',()=>openModal(p));
     barWrap.title='Clique para detalhes';
@@ -1385,7 +1385,7 @@ PROJECTS.forEach((p,i)=>{{
     const fill=document.createElement('div');
     fill.style.cssText=`position:absolute;top:0;left:0;bottom:0;
       width:${{p.pct}}%;
-      background:#94A3B8;
+      background:#4CAF7D;
       border-radius:5px 0 0 5px;`;
     barWrap.appendChild(fill);
 
@@ -1393,7 +1393,7 @@ PROJECTS.forEach((p,i)=>{{
     const bt=document.createElement('div');
     bt.style.cssText=`position:absolute;top:0;left:0;right:0;bottom:0;
       display:flex;align-items:center;padding:0 10px;
-      font-size:10px;font-weight:700;color:#475569;font-family:'Inter','Segoe UI',sans-serif;`;
+      font-size:12px;font-weight:700;color:#475569;font-family:'Inter','Segoe UI',sans-serif;`;
     bt.textContent=p.pct.toFixed(0)+'% concluído';
     barWrap.appendChild(bt);
 
