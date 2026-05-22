@@ -427,22 +427,27 @@ projetos_disp = PROJETOS_FIXOS
 if 'modo_apresentacao' not in st.session_state:
     st.session_state.modo_apresentacao = False
 
-st.markdown(f"""
-<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;'>
+# Cabeçalho com logo via components (suporta base64 longo)
+_data_ref_str   = data_ref.strftime('%d/%m/%Y')
+_n_proj         = len(PROJETOS_FIXOS)
+st.components.v1.html(f"""
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+  body{{margin:0;padding:0;background:transparent;font-family:'Inter',sans-serif;}}
+  .hdr{{display:flex;align-items:center;justify-content:space-between;
+        padding:4px 0 6px 0;}}
+  .hdr h1{{color:#1B2A4A;font-size:22px;font-weight:700;margin:0;line-height:1.2;}}
+  .hdr p{{color:#9AA5BE;font-size:11px;margin:3px 0 0 0;}}
+  .hdr img{{height:52px;object-fit:contain;opacity:0.92;}}
+</style>
+<div class='hdr'>
   <div>
-    <h1 style='color:#1B2A4A;font-size:24px;font-weight:700;margin:0;padding:0;'>
-      Dashboard Executivo - Digital
-    </h1>
-    <p style='color:#9AA5BE;font-size:12px;margin:2px 0 0 0;'>
-      PMBOK 8ª Ed. · Referência: {data_ref.strftime('%d/%m/%Y')} · {len(PROJETOS_FIXOS)} projetos no portfólio
-    </p>
+    <h1>Dashboard Executivo - Digital</h1>
+    <p>PMBOK 8ª Ed. &middot; Referência: {_data_ref_str} &middot; {_n_proj} projetos no portfólio</p>
   </div>
-  <img src='data:image/png;base64,{{_LOGO_B64}}'
-       style='height:52px;object-fit:contain;opacity:0.92;
-              filter:drop-shadow(0 1px 3px rgba(0,0,0,.10));'
-       alt='Logo'>
+  <img src='data:image/png;base64,{_LOGO_B64}' alt='Logo'>
 </div>
-""", unsafe_allow_html=True)
+""", height=72, scrolling=False)
 
 _apresentando = st.session_state.modo_apresentacao
 
