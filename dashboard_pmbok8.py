@@ -438,7 +438,7 @@ st.components.v1.html(f"""
         padding:4px 0 6px 0;}}
   .hdr h1{{color:#1B2A4A;font-size:22px;font-weight:700;margin:0;line-height:1.2;}}
   .hdr p{{color:#9AA5BE;font-size:11px;margin:3px 0 0 0;}}
-  .hdr img{{height:52px;object-fit:contain;opacity:0.92;}}
+  .hdr img{{height:104px;object-fit:contain;opacity:0.92;}}
 </style>
 <div class='hdr'>
   <div>
@@ -447,7 +447,7 @@ st.components.v1.html(f"""
   </div>
   <img src='data:image/png;base64,{_LOGO_B64}' alt='Logo'>
 </div>
-""", height=72, scrolling=False)
+""", height=120, scrolling=False)
 
 _apresentando = st.session_state.modo_apresentacao
 
