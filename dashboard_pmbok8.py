@@ -620,21 +620,28 @@ with c3:
 with c4: kpi_card("PROJETOS CRÍTICOS", str(crits_count), f"com IDP < {spi_limiar}", "#DC2626")
 with c5: kpi_card("MARCOS NO PORTFÓLIO", str(marcos_tot), "identificados", "#7C3AED")
 
-# Carinhas por projeto (segunda linha)
+# Carinhas por projeto (segunda linha) — 6 projetos, caixas de tamanho uniforme
 cols_face = st.columns(len(idp_por_projeto_final))
 for i, (proj, idp_val) in enumerate(idp_por_projeto_final.items()):
     face, cor_face, label_face = idp_face(idp_val)
     idp_txt = f"{idp_val:.2f}" if idp_val else "N/A"
     with cols_face[i]:
         st.markdown(f"""
-<div style='background:#fff;border-radius:10px;padding:10px 16px 8px 16px;
-            border-left:5px solid {cor_face};box-shadow:0 1px 6px rgba(0,0,0,.08);
-            display:flex;align-items:center;gap:14px;margin-top:12px;'>
-  <div style='font-size:11px;font-weight:700;color:#9AA5BE;text-transform:uppercase;
-              letter-spacing:.06em;flex:1;line-height:1.3;'>{proj}</div>
-  <div style='text-align:right;'>
-    <div style='font-size:28px;font-weight:700;color:{cor_face};line-height:1.1;'>IDP {idp_txt}</div>
-    <div style='font-size:12px;color:{cor_face};font-weight:600;'>{label_face}</div>
+<div style='background:#fff;border-radius:10px;
+            padding:10px 12px 10px 12px;
+            border-left:5px solid {cor_face};
+            box-shadow:0 1px 6px rgba(0,0,0,.08);
+            margin-top:12px;
+            min-height:90px;
+            display:flex;flex-direction:column;justify-content:space-between;'>
+  <div style='font-size:10px;font-weight:700;color:#4A5568;
+              text-transform:uppercase;letter-spacing:.05em;
+              line-height:1.4;word-break:break-word;'>{proj}</div>
+  <div>
+    <div style='font-size:24px;font-weight:700;color:{cor_face};
+                line-height:1.1;margin-top:6px;'>IDP {idp_txt}</div>
+    <div style='font-size:11px;color:{cor_face};font-weight:600;
+                margin-top:2px;'>{label_face}</div>
   </div>
 </div>""", unsafe_allow_html=True)
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
