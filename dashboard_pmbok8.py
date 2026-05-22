@@ -299,6 +299,15 @@ PROJ_CSS = {
     "Esteira Analytics":    "proj-header-ea",
 }
 
+PROJETOS_FIXOS = [
+    "Business Data Fabric",
+    "Cockpit Engenharia",
+    "Esteira Analytics",
+    "Demonstrativo Financeiro",
+    "Automacao Order to Cash",
+    "IA Copilot",
+]
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 5. SIDEBAR — UPLOAD & FILTROS
@@ -325,13 +334,13 @@ with st.sidebar:
     usar_ia     = st.toggle('🤖 Insights com IA (Claude API)', value=False)
     st.markdown('---')
 
-    # ── Edição de IDPs por projeto ────────────────────────────────────────────
-    st.markdown('### ✏️ Editar IDPs por Projeto')
-    st.caption('Altere os valores abaixo para recalcular os KPIs.')
+    # ── Projetos do Portfólio ────────────────────────────────────────────────────
+    st.markdown('### ✏️ Projetos do Portfolio')
+    st.caption('Edite IDP e datas de cada projeto.')
     if 'idp_override' not in st.session_state:
         st.session_state.idp_override = {}
-    _sb_idp_override = {}
-    # Placeholder — preenchido após carregar dados (ver abaixo)
+    if 'proj_manual' not in st.session_state:
+        st.session_state.proj_manual = {}
     _sb_idp_placeholder = st.empty()
     st.markdown('---')
 
@@ -355,20 +364,41 @@ def load_projects(files_meta: list) -> pd.DataFrame:
 
 if uploaded:
     files_meta = [(f.name, f.read()) for f in uploaded]
-    df_full = load_projects(files_meta)
+    df_xml = load_projects(files_meta)
 else:
-    df_full = pd.DataFrame()
+    df_xml = pd.DataFrame()
 
-# Atualiza opções de filtro
-if not df_full.empty:
-    projetos_disp = sorted(df_full['projeto'].unique().tolist())
-    # Update filtro options (hack: rerun needed; use session)
-    if not st.session_state.get('filtro_proj'):
-        filtro_proj = projetos_disp
-    df_view = df_full[df_full['projeto'].isin(filtro_proj)] if filtro_proj else df_full
-else:
-    df_view = df_full
-    projetos_disp = []
+if 'proj_manual' not in st.session_state:
+    st.session_state.proj_manual = {}
+
+def _ensure_proj(proj):
+    if not df_xml.empty:
+        rows = df_xml[(df_xml['projeto']==proj) & (df_xml['nivel']==1)]
+        if not rows.empty:
+            return rows
+    m = st.session_state.proj_manual.get(proj, {})
+    idp_v = float(m['idp']) if m.get('idp') else None
+    return pd.DataFrame([{
+        'projeto': proj, 'uid': '0', 'nome': proj,
+        'nivel': 1, 'pct': float(m.get('pct', 0)),
+        'pv': 0.0, 'ev': 0.0, 'spi': idp_v,
+        'status': '', 'resp': '',
+        'inicio':   pd.Timestamp(m['inicio'])  if m.get('inicio')  else pd.NaT,
+        'termino':  pd.Timestamp(m['termino']) if m.get('termino') else pd.NaT,
+        'baseline_termino': pd.NaT,
+        'is_milestone': False, 'is_summary': False, 'desvio_dias': None,
+    }])
+
+dfs = []
+for proj in PROJETOS_FIXOS:
+    dfs.append(_ensure_proj(proj))
+    if not df_xml.empty:
+        filhas = df_xml[(df_xml['projeto']==proj) & (df_xml['nivel']>1)]
+        if not filhas.empty:
+            dfs.append(filhas)
+
+df_view = build_df(pd.concat(dfs, ignore_index=True)) if dfs else pd.DataFrame()
+projetos_disp = PROJETOS_FIXOS
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -382,7 +412,7 @@ st.markdown(
     f"<h1 style='color:#1B2A4A;font-size:24px;font-weight:700;margin-bottom:2px'>"
     f"Dashboard Executivo - Digital</h1>"
     f"<p style='color:#9AA5BE;font-size:12px'>PMBOK 8ª Ed. · Referência: "
-    f"{data_ref.strftime('%d/%m/%Y')} · {len(projetos_disp)} projeto(s) carregado(s)</p>",
+    f"{data_ref.strftime('%d/%m/%Y')} · {len(PROJETOS_FIXOS)} projetos no portfólio</p>",
     unsafe_allow_html=True,
 )
 
@@ -486,56 +516,88 @@ pct_media_calc   = df_root['pct'].mean() if not df_root.empty else 0
 crits_count_calc = df_view[(df_view['spi_num'] < spi_limiar) & df_view['spi_num'].notna()]['projeto'].nunique()
 marcos_tot_calc  = df_view[df_view['is_milestone']].shape[0]
 
-# IDP por projeto: consolida todas as L1 de cada projeto
-# Regra: se todas as L1 têm ev=0 (Cockpit) → média ponderada pelo pv via spi_num
-#         senão → soma(EV) / soma(PV) de todas as L1 (BDF, Esteira)
+# IDP por projeto — sempre 6 projetos fixos
 _l1_rows = df_view[
     (df_view['nivel'] == 1) &
     (~df_view['nome'].isin(['MS Project_Teste_Formulas_2', 'NOME DO PROJETO']))
 ]
 
 idp_por_projeto = {}
-for proj, grp in _l1_rows.groupby('projeto'):
+for proj in PROJETOS_FIXOS:
+    grp = _l1_rows[_l1_rows['projeto'] == proj]
+    if grp.empty:
+        # Sem dados: usa override manual
+        idp_por_projeto[proj] = float(st.session_state.idp_override.get(proj, 0)) or None
+        continue
     total_pv = grp['pv'].sum()
     total_ev = grp['ev'].sum()
     if total_ev > 0 and total_pv > 0:
-        # BDF / Esteira: IDP = EV total / PV total
         idp_por_projeto[proj] = round(total_ev / total_pv, 4)
     else:
-        # Cockpit: ev=0, usa spi_num (Texto3) ponderado pelo pv
         valid = grp[grp['spi_num'].notna() & (grp['pv'] > 0)]
         if not valid.empty:
             idp_por_projeto[proj] = round(
-                (valid['spi_num'] * valid['pv']).sum() / valid['pv'].sum(), 4
-            )
+                (valid['spi_num'] * valid['pv']).sum() / valid['pv'].sum(), 4)
         elif grp['spi_num'].notna().any():
             idp_por_projeto[proj] = round(grp['spi_num'].dropna().mean(), 4)
         else:
-            idp_por_projeto[proj] = None
+            idp_por_projeto[proj] = float(st.session_state.idp_override.get(proj, 0)) or None
 
-_vals = [v for v in idp_por_projeto.values() if v is not None]
+_vals = [v for v in idp_por_projeto.values() if v]
 spi_medio_calc = round(sum(_vals) / len(_vals), 4) if _vals else None
 
 # ── IDP por projeto: inputs no sidebar, lidos aqui ──────────────────────────
 if 'idp_override' not in st.session_state:
     st.session_state.idp_override = {}
 
-# Renderiza inputs no sidebar via placeholder (oculto no modo apresentação)
+# Renderiza inputs no sidebar — todos os 6 projetos sempre visíveis
 idp_por_projeto_final = {}
 with _sb_idp_placeholder.container():
     if not st.session_state.get('modo_apresentacao', False):
-        for proj, idp_calc in idp_por_projeto.items():
-            idp_editado = st.number_input(
-                proj[:28],
-                value=float(st.session_state.idp_override.get(proj, idp_calc or 0.0)),
-                step=0.01, format='%.2f',
-                key=f'idp_input_{proj}'
-            )
+        for proj in PROJETOS_FIXOS:
+            # IDP calculado do XML ou do override manual
+            idp_calc = idp_por_projeto.get(proj)
+            st.markdown(f"**{proj[:30]}**")
+            col_idp, col_pct = st.columns(2)
+            with col_idp:
+                idp_editado = st.number_input(
+                    "IDP", min_value=0.0, max_value=2.0,
+                    value=float(st.session_state.idp_override.get(proj, idp_calc or 0.0)),
+                    step=0.01, format='%.2f',
+                    key=f'idp_input_{proj}'
+                )
+            with col_pct:
+                pct_editado = st.number_input(
+                    "% Concl.", min_value=0, max_value=100,
+                    value=int(st.session_state.proj_manual.get(proj, {}).get('pct', 0)),
+                    step=1, key=f'pct_input_{proj}'
+                )
+            # Datas (apenas para projetos sem XML)
+            has_xml = not df_xml.empty and proj in df_xml['projeto'].values
+            if not has_xml:
+                col_ini, col_fim = st.columns(2)
+                with col_ini:
+                    ini_val = st.session_state.proj_manual.get(proj, {}).get('inicio', '')
+                    ini_str = st.text_input("Início", value=ini_val,
+                        placeholder="AAAA-MM-DD", key=f'ini_{proj}')
+                with col_fim:
+                    fim_val = st.session_state.proj_manual.get(proj, {}).get('termino', '')
+                    fim_str = st.text_input("Término", value=fim_val,
+                        placeholder="AAAA-MM-DD", key=f'fim_{proj}')
+                st.session_state.proj_manual[proj] = {
+                    'idp': idp_editado, 'pct': pct_editado,
+                    'inicio': ini_str, 'termino': fim_str,
+                }
+            else:
+                st.session_state.proj_manual[proj] = {
+                    'idp': idp_editado, 'pct': pct_editado,
+                }
             st.session_state.idp_override[proj] = idp_editado
             idp_por_projeto_final[proj] = idp_editado
+            st.markdown("<hr style='margin:6px 0;border-color:#eee'>", unsafe_allow_html=True)
     else:
-        # Modo apresentação: usa valores salvos sem mostrar inputs
-        for proj, idp_calc in idp_por_projeto.items():
+        for proj in PROJETOS_FIXOS:
+            idp_calc = idp_por_projeto.get(proj)
             idp_por_projeto_final[proj] = float(st.session_state.idp_override.get(proj, idp_calc or 0.0))
 
 
@@ -1832,7 +1894,7 @@ GOV_DEFAULTS = {
     ],
 }
 
-projetos_gov = sorted(df_view['projeto'].unique().tolist())
+projetos_gov = PROJETOS_FIXOS
 
 for proj in projetos_gov:
     k = proj.replace(" ", "_").replace("/", "_")
