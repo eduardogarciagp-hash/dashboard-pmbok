@@ -2108,6 +2108,228 @@ def gerar_pdf_executivo(df_view, idp_por_projeto, gov_data, data_ref):
     story.append(Spacer(1, 0.5*cm))
     story.append(HRFlowable(width="100%", thickness=0.5, color=MGRAY, spaceAfter=10))
 
+    # ── B. Roadmap ────────────────────────────────────────────────────────────
+    story.append(Paragraph("B. Roadmap Executivo & Marcos de Valor", S_SEC))
+    story.append(Spacer(1, 0.2*cm))
+
+    MARCOS_CURADOS_PDF = {
+        "Business Data Fabric": [
+            {"nome": "Kick-off Projeto",               "data": "2026-03-25", "pct": 100},
+            {"nome": "Assinatura Contrato MS Fabric",  "data": "2026-06-09", "pct": 0},
+            {"nome": "Assinatura Contrato Implantacao","data": "2026-06-09", "pct": 0},
+            {"nome": "Ativacao SKU / Go-Live Fabric",  "data": "2026-06-23", "pct": 0},
+            {"nome": "Publicacao Politica Governanca", "data": "2026-04-30", "pct": 0},
+            {"nome": "SAC GO-LIVE",                   "data": "2026-07-02", "pct": 0},
+            {"nome": "Encerramento",                   "data": "2026-12-11", "pct": 0},
+        ],
+        "Cockpit Engenharia": [
+            {"nome": "Aprovacao TAP",                  "data": "2026-05-22", "pct": 64},
+            {"nome": "Kick-off Fase 1",                "data": "2026-06-05", "pct": 100},
+            {"nome": "Assinatura Contrato Fase 2",     "data": "2026-08-14", "pct": 0},
+            {"nome": "GO-LIVE",                        "data": "2026-10-29", "pct": 0},
+        ],
+        "Esteira Analytics": [
+            {"nome": "Definicao Entregas Q1",          "data": "2026-01-02", "pct": 100},
+            {"nome": "Assinatura Contrato Estrategia", "data": "2026-03-06", "pct": 100},
+            {"nome": "Go Live Estrategia de Dados",    "data": "2026-04-30", "pct": 100},
+            {"nome": "Conclusao Entregas Q1",          "data": "2026-05-27", "pct": 87},
+            {"nome": "Conclusao Entregas Q2",          "data": "2026-06-30", "pct": 0},
+            {"nome": "Conclusao Entregas Q3",          "data": "2026-09-30", "pct": 0},
+            {"nome": "Conclusao Entregas Q4",          "data": "2026-12-31", "pct": 0},
+        ],
+    }
+
+    from datetime import datetime as _dtpdf
+
+    # Calcula min/max de todas as datas para escala
+    all_dates = []
+    df_l1 = df_view[(df_view['nivel']==1) &
+                    (~df_view['nome'].isin(['MS Project_Teste_Formulas_2','NOME DO PROJETO']))]
+    for _, r in df_l1.iterrows():
+        if pd.notna(r['inicio']):  all_dates.append(r['inicio'].date())
+        if pd.notna(r['termino']): all_dates.append(r['termino'].date())
+    for ms_list in MARCOS_CURADOS_PDF.values():
+        for m in ms_list:
+            all_dates.append(_dtpdf.strptime(m['data'], '%Y-%m-%d').date())
+
+    if not all_dates:
+        story.append(Paragraph("Dados de roadmap nao disponiveis.", sty("na")))
+    else:
+        from datetime import timedelta
+        d_min = min(all_dates)
+        d_max = max(all_dates)
+        span  = (d_max - d_min).days or 1
+
+        BAR_W    = W - 2*mg - 3.5*cm   # largura util da barra
+        LABEL_W  = 3.4*cm
+        ROW_H    = 0.75*cm
+        HOJE     = date.today()
+
+        def d2x(d):
+            return LABEL_W + ((d - d_min).days / span) * BAR_W
+
+        from reportlab.platypus import Flowable
+
+        class RoadmapFlowable(Flowable):
+            def __init__(self, df_l1, marcos_dict, d_min, d_max, span,
+                         bar_w, label_w, row_h, hoje, cor_idp_fn, idp_proj, projetos):
+                super().__init__()
+                self.df_l1       = df_l1
+                self.marcos_dict = marcos_dict
+                self.d_min       = d_min
+                self.d_max       = d_max
+                self.span        = span
+                self.bar_w_base  = bar_w
+                self.label_w     = label_w
+                self.row_h       = row_h
+                self.hoje        = hoje
+                self.cor_idp_fn  = cor_idp_fn
+                self.idp_proj    = idp_proj
+                self.projetos    = projetos
+                self.HEADER_H    = 0.6*cm
+                self.total_h     = self.HEADER_H + len(projetos) * row_h
+
+            def wrap(self, avW, avH):
+                self.avW = avW
+                return (avW, self.total_h)
+
+            def draw(self):
+                c         = self.canv
+                label_w   = self.label_w
+                bar_w     = self.avW - label_w
+                HEADER_H  = self.HEADER_H
+                total_h   = self.total_h
+                d_min     = self.d_min
+                d_max     = self.d_max
+                span      = self.span
+                row_h     = self.row_h
+                hoje      = self.hoje
+
+                NAVY    = rl_colors.HexColor("#1B2A4A")
+                MGRAY   = rl_colors.HexColor("#CBD5E1")
+                LGRAY   = rl_colors.HexColor("#F1F5F9")
+                SLATE   = rl_colors.HexColor("#64748B")
+                GREEN   = rl_colors.HexColor("#059669")
+                AMBER   = rl_colors.HexColor("#D97706")
+                RED     = rl_colors.HexColor("#DC2626")
+                BLUEC   = rl_colors.HexColor("#3B82F6")
+                TODAY_C = rl_colors.HexColor("#63B3ED")
+
+                def d2x(d):
+                    return label_w + ((d - d_min).days / span) * bar_w
+
+                # ── Meses header ─────────────────────────────────────────────
+                from datetime import date as _dt_date
+                cur   = _dt_date(d_min.year, d_min.month, 1)
+                y_hdr = total_h - HEADER_H
+                while cur <= d_max:
+                    next_m = _dt_date(cur.year + (cur.month // 12), (cur.month % 12) + 1, 1)
+                    x0 = max(d2x(cur),    label_w)
+                    x1 = min(d2x(next_m), label_w + bar_w)
+                    w  = x1 - x0
+                    if w > 2:
+                        c.setFillColor(LGRAY)
+                        c.rect(x0, y_hdr, w, HEADER_H, fill=1, stroke=0)
+                        c.setFillColor(SLATE)
+                        c.setFont("Helvetica-Bold", 5.5)
+                        c.drawCentredString(x0 + w/2, y_hdr + HEADER_H*0.3, cur.strftime('%b/%y'))
+                    xg = d2x(cur)
+                    if label_w <= xg <= label_w + bar_w:
+                        c.setStrokeColor(MGRAY); c.setLineWidth(0.3)
+                        c.line(xg, 0, xg, total_h)
+                    cur = next_m
+                c.setStrokeColor(MGRAY); c.setLineWidth(0.4)
+                c.rect(label_w, y_hdr, bar_w, HEADER_H, fill=0, stroke=1)
+
+                # ── Linha de hoje ─────────────────────────────────────────────
+                if d_min <= hoje <= d_max:
+                    xh = d2x(hoje)
+                    c.setStrokeColor(TODAY_C); c.setLineWidth(1.2); c.setDash(3,3)
+                    c.line(xh, 0, xh, y_hdr); c.setDash()
+                    c.setFillColor(TODAY_C); c.setFont("Helvetica-Bold", 5)
+                    c.drawCentredString(xh, y_hdr - 0.15*cm, "HOJE")
+
+                # ── Rows ──────────────────────────────────────────────────────
+                for i, proj in enumerate(self.projetos):
+                    y_row = total_h - HEADER_H - (i + 1) * row_h
+                    bg    = LGRAY if i % 2 == 0 else rl_colors.white
+                    c.setFillColor(bg)
+                    c.rect(0, y_row, label_w + bar_w, row_h, fill=1, stroke=0)
+                    c.setStrokeColor(MGRAY); c.setLineWidth(0.3)
+                    c.line(0, y_row, label_w + bar_w, y_row)
+
+                    v = self.idp_proj.get(proj)
+                    cor_v = self.cor_idp_fn(v)
+                    c.setFillColor(NAVY); c.setFont("Helvetica-Bold", 7)
+                    short = proj[:20]+"..." if len(proj)>20 else proj
+                    c.drawString(3, y_row + row_h*0.55, short)
+                    c.setFont("Helvetica", 6); c.setFillColor(cor_v)
+                    c.drawString(3, y_row + row_h*0.2, f"IDP {v:.2f}" if v else "N/A")
+
+                    row = self.df_l1[self.df_l1['projeto']==proj]
+                    if not row.empty:
+                        r0 = row.iloc[0]
+                        if pd.notna(r0['inicio']) and pd.notna(r0['termino']):
+                            ini_d = r0['inicio'].date()
+                            fim_d = r0['termino'].date()
+                            for m in self.marcos_dict.get(proj,[]):
+                                md2 = _dtpdf.strptime(m['data'],'%Y-%m-%d').date()
+                                if md2 > fim_d: fim_d = md2
+                            xs = max(d2x(ini_d), label_w)
+                            xe = min(d2x(fim_d), label_w + bar_w)
+                            bh = row_h * 0.38
+                            yb = y_row + (row_h - bh)/2
+                            c.setFillColor(rl_colors.HexColor("#F1F5F9"))
+                            c.setStrokeColor(MGRAY); c.setLineWidth(0.4)
+                            c.roundRect(xs, yb, xe-xs, bh, 2, fill=1, stroke=1)
+                            fw = (xe-xs)*float(r0['pct'])/100
+                            if fw > 1:
+                                c.setFillColor(rl_colors.HexColor("#94A3B8"))
+                                c.roundRect(xs, yb, fw, bh, 2, fill=1, stroke=0)
+                            c.setFillColor(SLATE); c.setFont("Helvetica-Bold", 5.5)
+                            c.drawCentredString((xs+xe)/2, yb+bh*0.25, f"{r0['pct']:.0f}% concluido")
+
+                    for m in self.marcos_dict.get(proj,[]):
+                        md = _dtpdf.strptime(m['data'],'%Y-%m-%d').date()
+                        if not (d_min <= md <= d_max): continue
+                        xm = d2x(md)
+                        ym_c = y_row + row_h*0.72
+                        nome_lower = m['nome'].lower().replace('-','').replace(' ','')
+                        if 'golive' in nome_lower:
+                            c.setFillColor(AMBER); c.setFont("Helvetica-Bold", 9)
+                            c.drawCentredString(xm, ym_c - 3, "*")
+                        else:
+                            mk_c = GREEN if m['pct']>=100 else (RED if md<hoje else BLUEC)
+                            sz = 3.5
+                            c.setFillColor(mk_c)
+                            p = c.beginPath()
+                            p.moveTo(xm, ym_c+sz); p.lineTo(xm+sz, ym_c)
+                            p.lineTo(xm, ym_c-sz); p.lineTo(xm-sz, ym_c); p.close()
+                            c.drawPath(p, fill=1, stroke=0)
+                        c.setFillColor(SLATE); c.setFont("Helvetica", 4)
+                        lbl = m['nome'][:12]+"..." if len(m['nome'])>12 else m['nome']
+                        c.drawCentredString(xm, y_row + 1.5, lbl)
+
+                c.setStrokeColor(MGRAY); c.setLineWidth(0.5)
+                c.rect(label_w, 0, bar_w, total_h, fill=0, stroke=1)
+
+        projetos = sorted(df_l1['projeto'].unique().tolist())
+
+        roadmap = RoadmapFlowable(
+            df_l1       = df_l1,
+            marcos_dict = MARCOS_CURADOS_PDF,
+            d_min       = d_min, d_max=d_max, span=span,
+            bar_w       = BAR_W, label_w=LABEL_W, row_h=ROW_H,
+            hoje        = HOJE,
+            cor_idp_fn  = cor_idp,
+            idp_proj    = idp_por_projeto,
+            projetos    = projetos,
+        )
+        story.append(roadmap)
+
+    story.append(Spacer(1, 0.5*cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=MGRAY, spaceAfter=10))
+
     # ── C. Governança ─────────────────────────────────────────────────────────
     story.append(Paragraph(
         "C. Governanca de Incertezas: Pontos Criticos e Planos de Acao", S_SEC))
@@ -2120,8 +2342,12 @@ def gerar_pdf_executivo(df_view, idp_por_projeto, gov_data, data_ref):
     }
 
     for proj in sorted(df_view['projeto'].unique().tolist()):
-        k = proj.replace(" ","_").replace("/","_")
-        linhas = [l for l in gov_data.get(k, [])
+        # Tenta múltiplos formatos de chave
+        k1 = proj.replace(" ","_").replace("/","_")
+        k2 = proj
+        k3 = proj.replace(" ","").replace("/","")
+        linhas_raw = gov_data.get(k1) or gov_data.get(k2) or gov_data.get(k3) or []
+        linhas = [l for l in linhas_raw
                   if any([l.get("impacto"), l.get("causa"), l.get("plano")])]
         if not linhas:
             continue
