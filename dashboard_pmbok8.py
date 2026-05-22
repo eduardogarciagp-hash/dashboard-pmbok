@@ -602,12 +602,14 @@ with _sb_idp_placeholder.container():
 
 
 # KPIs recalculados a partir dos IDPs editados
-_idp_vals   = [v for v in idp_por_projeto_final.values() if v]
-spi_medio   = round(sum(_idp_vals) / len(_idp_vals), 4) if _idp_vals else None
-crits_count = sum(1 for v in idp_por_projeto_final.values() if v and v < spi_limiar)
-n_projetos  = len(idp_por_projeto_final)
-pct_media   = pct_media_calc
-marcos_tot  = marcos_tot_calc
+_idp_vals = [v for v in idp_por_projeto_final.values() if v]
+spi_medio = round(sum(_idp_vals) / len(_idp_vals), 4) if _idp_vals else None
+n_projetos = len(idp_por_projeto_final)
+pct_media  = pct_media_calc
+
+# Upstream / Downstream — editáveis no sidebar
+if 'kpi_upstream'   not in st.session_state: st.session_state.kpi_upstream   = 0
+if 'kpi_downstream' not in st.session_state: st.session_state.kpi_downstream = 0
 
 # KPI cards (primeira linha)
 c1, c2, c3, c4, c5 = st.columns(5)
@@ -617,8 +619,32 @@ with c3:
     spi_str = f"{spi_medio:.2f}" if spi_medio else "N/A"
     cor3 = "#DC2626" if (spi_medio and spi_medio < 0.95) else ("#D97706" if (spi_medio and spi_medio < 0.99) else "#059669")
     kpi_card("IDP PORTFÓLIO", spi_str, "índice de desempenho", cor3)
-with c4: kpi_card("PROJETOS CRÍTICOS", str(crits_count), f"com IDP < {spi_limiar}", "#DC2626")
-with c5: kpi_card("MARCOS NO PORTFÓLIO", str(marcos_tot), "identificados", "#7C3AED")
+with c4:
+    if not _apresentando:
+        st.markdown("<div class='kpi-card' style='border-left-color:#0EA5E9'>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi-label'>PROJETOS EM UPSTREAM</div>", unsafe_allow_html=True)
+        st.session_state.kpi_upstream = st.number_input(
+            "upstream", min_value=0, max_value=50,
+            value=st.session_state.kpi_upstream,
+            step=1, label_visibility="collapsed", key="inp_upstream"
+        )
+        st.markdown("<div class='kpi-sub'>em iniciação / planejamento</div></div>", unsafe_allow_html=True)
+    else:
+        kpi_card("PROJETOS EM UPSTREAM", str(st.session_state.kpi_upstream),
+                 "em iniciação / planejamento", "#0EA5E9")
+with c5:
+    if not _apresentando:
+        st.markdown("<div class='kpi-card' style='border-left-color:#7C3AED'>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi-label'>PROJETOS EM DOWNSTREAM</div>", unsafe_allow_html=True)
+        st.session_state.kpi_downstream = st.number_input(
+            "downstream", min_value=0, max_value=50,
+            value=st.session_state.kpi_downstream,
+            step=1, label_visibility="collapsed", key="inp_downstream"
+        )
+        st.markdown("<div class='kpi-sub'>em execução / encerramento</div></div>", unsafe_allow_html=True)
+    else:
+        kpi_card("PROJETOS EM DOWNSTREAM", str(st.session_state.kpi_downstream),
+                 "em execução / encerramento", "#7C3AED")
 
 # Carinhas por projeto (segunda linha) — 6 projetos, caixas de tamanho uniforme
 cols_face = st.columns(len(idp_por_projeto_final))
