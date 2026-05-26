@@ -438,6 +438,10 @@ def _ensure_proj(proj):
         'is_milestone': False, 'is_summary': False, 'desvio_dias': None,
     }])
 
+# Lista dinâmica: fixos + extras adicionados pelo usuário
+PROJETOS_PORTFOLIO = PROJETOS_FIXOS + st.session_state.get('projetos_extras', [])
+projetos_disp = PROJETOS_PORTFOLIO
+
 dfs = []
 for proj in PROJETOS_PORTFOLIO:
     dfs.append(_ensure_proj(proj))
@@ -448,8 +452,6 @@ for proj in PROJETOS_PORTFOLIO:
 
 df_view = build_df(pd.concat(dfs, ignore_index=True)) if dfs else pd.DataFrame()
 # Lista dinâmica: fixos + extras
-PROJETOS_PORTFOLIO = PROJETOS_FIXOS + st.session_state.get('projetos_extras', [])
-projetos_disp = PROJETOS_PORTFOLIO
 
 
 # ──────────────────────────────────────────────────────────────────────────────
