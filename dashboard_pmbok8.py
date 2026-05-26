@@ -326,6 +326,8 @@ PROJETOS_FIXOS = [
     "Automacao Order to Cash",
     "IA Copilot",
 ]
+# Lista dinâmica (fixos + extras adicionados pelo usuário)
+# Resolvida após inicialização do session_state (ver abaixo)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -360,6 +362,34 @@ with st.sidebar:
         st.session_state.idp_override = {}
     if 'proj_manual' not in st.session_state:
         st.session_state.proj_manual = {}
+    if 'projetos_extras' not in st.session_state:
+        st.session_state.projetos_extras = []
+
+    # Adicionar novo projeto
+    with st.expander("➕ Adicionar projeto", expanded=False):
+        novo_nome = st.text_input("Nome do projeto", placeholder="Ex: Projeto X", key="novo_proj_nome")
+        if st.button("Adicionar", key="btn_add_proj", use_container_width=True):
+            nome = novo_nome.strip()
+            todos = PROJETOS_FIXOS + st.session_state.projetos_extras
+            if nome and nome not in todos:
+                st.session_state.projetos_extras.append(nome)
+                st.session_state.proj_manual[nome] = {'idp': 0.0, 'pct': 0, 'inicio': '', 'termino': ''}
+                st.rerun()
+            elif not nome:
+                st.warning("Digite um nome.")
+            else:
+                st.warning("Projeto já existe.")
+
+    # Remover projetos extras
+    if st.session_state.projetos_extras:
+        with st.expander("🗑️ Remover projeto", expanded=False):
+            proj_rem = st.selectbox("Selecione", st.session_state.projetos_extras, key="sel_rem_proj")
+            if st.button("Remover", key="btn_rem_proj", use_container_width=True):
+                st.session_state.projetos_extras.remove(proj_rem)
+                st.session_state.proj_manual.pop(proj_rem, None)
+                st.session_state.idp_override.pop(proj_rem, None)
+                st.rerun()
+
     _sb_idp_placeholder = st.empty()
     st.markdown('---')
 
@@ -409,7 +439,7 @@ def _ensure_proj(proj):
     }])
 
 dfs = []
-for proj in PROJETOS_FIXOS:
+for proj in PROJETOS_PORTFOLIO:
     dfs.append(_ensure_proj(proj))
     if not df_xml.empty:
         filhas = df_xml[(df_xml['projeto']==proj) & (df_xml['nivel']>1)]
@@ -417,7 +447,9 @@ for proj in PROJETOS_FIXOS:
             dfs.append(filhas)
 
 df_view = build_df(pd.concat(dfs, ignore_index=True)) if dfs else pd.DataFrame()
-projetos_disp = PROJETOS_FIXOS
+# Lista dinâmica: fixos + extras
+PROJETOS_PORTFOLIO = PROJETOS_FIXOS + st.session_state.get('projetos_extras', [])
+projetos_disp = PROJETOS_PORTFOLIO
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -556,7 +588,7 @@ _l1_rows = df_view[
 ]
 
 idp_por_projeto = {}
-for proj in PROJETOS_FIXOS:
+for proj in PROJETOS_PORTFOLIO:
     grp = _l1_rows[_l1_rows['projeto'] == proj]
     if grp.empty:
         # Sem dados: usa override manual
@@ -587,7 +619,7 @@ if 'idp_override' not in st.session_state:
 idp_por_projeto_final = {}
 with _sb_idp_placeholder.container():
     if not st.session_state.get('modo_apresentacao', False):
-        for proj in PROJETOS_FIXOS:
+        for proj in PROJETOS_PORTFOLIO:
             # IDP calculado do XML ou do override manual
             idp_calc = idp_por_projeto.get(proj)
             st.markdown(f"**{proj[:30]}**")
@@ -629,7 +661,7 @@ with _sb_idp_placeholder.container():
             idp_por_projeto_final[proj] = idp_editado
             st.markdown("<hr style='margin:6px 0;border-color:#eee'>", unsafe_allow_html=True)
     else:
-        for proj in PROJETOS_FIXOS:
+        for proj in PROJETOS_PORTFOLIO:
             idp_calc = idp_por_projeto.get(proj)
             idp_por_projeto_final[proj] = float(st.session_state.idp_override.get(proj, idp_calc or 0.0))
 
@@ -725,7 +757,7 @@ def _ts(dt):
 import json as _json
 
 proj_data = []
-for proj in PROJETOS_FIXOS:
+for proj in PROJETOS_PORTFOLIO:
     df_p = df_view[df_view['projeto'] == proj] if not df_view.empty else pd.DataFrame()
 
     # Linha raiz L1 do projeto para datas início/fim
@@ -1981,7 +2013,7 @@ GOV_DEFAULTS = {
     ],
 }
 
-projetos_gov = PROJETOS_FIXOS
+projetos_gov = PROJETOS_PORTFOLIO
 
 for proj in projetos_gov:
     k = proj.replace(" ", "_").replace("/", "_")
