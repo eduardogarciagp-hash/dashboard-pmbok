@@ -23,7 +23,7 @@
     "Cockpit_Engenharia": [
       {
         "titulo": "Testes Unitários e Testes Integrados",
-        "impacto": "O Cockpit Engenharia opera com IDP=0,98 (fórmula MS Project), indicando desempenho geral satisfatório. Porém, a aprovação da TAP por Marcel com SPI=0,64 é o único ponto de falha que pode comprometer toda a FASE 2. Sem TAP formalmente aprovada: o contrato com IntechPRO não pode ser assinado, o Kick-off da FASE 2 (ajustes SolvePlan) não pode ser formalizado, e o Go-Live de Out/2026 fica em risco de postergação. O projeto está essencialmente com uma dependência crítica de uma única pessoa em uma única atividade.",
+        "impacto": "Os testes unitários foram concluídos no dia 26/06 (prazo era 22/05), porém não impactou na data de entrega dos testes integrados previstos para 29/06.\n",
         "causa": "1. Recursos técnicos divididos entre finalização dos testes unitários e início das análises da FASE 2 (SolvePlan). 2. Prazo apertado: Testes Unitários previsto para terminar 26/Mai, Integrados para 29/Mai — janela de apenas 3 dias. 3. Critério de aceite dos testes não formalmente validado com Amanda antes da execução.",
         "plano": "1. [Esta semana] Dumont agenda sessão de 30 minutos com Marcel — leva resumo executivo de 1 página com os riscos de atraso mapeados. 2. [Até 30/Mai] Se Marcel não aprovar, PMO escala formalmente ao patrocinador executivo com registro documentado. 3. [Imediato] Paralelizar o que for possível: iniciar análise dos dashs SolvePlan (FASE 2 UPStream) independente da TAP. 4. [Até 05/Jun] Revisão do impacto no cronograma da FASE 2: mapear quais atividades podem iniciar sem TAP e quais ficam bloqueadas. 5. [Contingência] Se TAP não aprovada até 10/Jun, revisar data do Go-Live com sponsor."
       }
