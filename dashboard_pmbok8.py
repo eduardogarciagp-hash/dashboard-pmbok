@@ -1524,7 +1524,7 @@ if(HOJE_MS>=MIN&&HOJE_MS<=MAX){{
   const lbl=document.createElement('div'); lbl.className='today-lbl';
   lbl.style.left=left;
   const hd=new Date(HOJE_MS);
-  lbl.textContent='Hoje '+hd.getUTCDate()+'\/'+(hd.getUTCMonth()+1);
+  lbl.textContent='Hoje '+hd.getUTCDate()+'/'+(hd.getUTCMonth()+1);
   body.appendChild(tl); body.appendChild(lbl);
 }}
 
