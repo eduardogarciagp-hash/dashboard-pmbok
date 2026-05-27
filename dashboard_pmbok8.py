@@ -471,7 +471,6 @@ _GH_REPO  = st.secrets.get('GITHUB_REPO',  '')
 _GH_FILE  = 'dashboard_state.json'
 _GH_API   = f'https://api.github.com/repos/{_GH_REPO}/contents/{_GH_FILE}'
 
-@st.cache_data(show_spinner=False, ttl=30)
 def _gh_load(token, repo):
     """Carrega estado salvo do GitHub."""
     if not token or not repo:
@@ -531,22 +530,25 @@ def _gh_save(token, repo, data):
             timeout=15
         )
         if r_put.status_code in (200, 201):
-            _gh_load.clear()
             return True, "ok"
         else:
             return False, f"HTTP {r_put.status_code}: {r_put.text[:300]}"
     except Exception as e:
         return False, str(e)
 
-# Carrega estado na primeira abertura da sessão
+# Carrega estado na primeira abertura da sessão — sempre do GitHub
 if 'ls_loaded' not in st.session_state:
     st.session_state.ls_loaded = False
 
-if not st.session_state.ls_loaded:
+if not st.session_state.ls_loaded and _GH_TOKEN and _GH_REPO:
     _saved = _gh_load(_GH_TOKEN, _GH_REPO)
-    for _k in _PERSIST_KEYS:
-        if _k in _saved and _k not in st.session_state:
-            st.session_state[_k] = _saved[_k]
+    # Ignora chaves de erro
+    _saved = {k: v for k, v in _saved.items() if not k.startswith('_')}
+    if _saved:
+        for _k in _PERSIST_KEYS:
+            if _k in _saved:
+                # Sobrescreve sempre com o valor salvo do GitHub
+                st.session_state[_k] = _saved[_k]
     st.session_state.ls_loaded = True
 
 
@@ -1927,7 +1929,9 @@ if 'gov_del' not in st.session_state:
     st.session_state.gov_del = {}
 # Versão dos defaults — incrementar para forçar recarga do conteúdo PMO
 _GOV_VERSION = "v3"
-if st.session_state.get('gov_version') != _GOV_VERSION:
+# Só reseta gov_data se não foi carregado do GitHub
+if (st.session_state.get('gov_version') != _GOV_VERSION
+        and not st.session_state.get('ls_loaded')):
     st.session_state.gov_data = {}
     st.session_state.gov_version = _GOV_VERSION
 
@@ -2727,14 +2731,31 @@ with _sb_status_placeholder.container():
     elif not _GH_REPO:
         st.warning("⚠️ GITHUB_REPO não configurado nos Secrets.")
     else:
+        # Debug: mostra primeiros/últimos chars do token
+        _tok_preview = f"{_GH_TOKEN[:6]}...{_GH_TOKEN[-4:]}" if len(_GH_TOKEN) > 10 else "curto?"
+        _tok_len     = len(_GH_TOKEN)
+        _tok_clean   = _GH_TOKEN.strip().strip('"').strip("'")
+        st.caption(f"Token: `{_tok_preview}` ({_tok_len} chars) | Repo: `{_GH_REPO}`")
+        if _tok_clean != _GH_TOKEN:
+            st.warning("⚠️ Token tem aspas ou espaços extras — corrigindo...")
+            _GH_TOKEN_USE = _tok_clean
+        else:
+            _GH_TOKEN_USE = _GH_TOKEN
         if _state_to_save:
-            _save_ok, _save_msg = _gh_save(_GH_TOKEN, _GH_REPO, _state_to_save)
+            _save_ok, _save_msg = _gh_save(_GH_TOKEN_USE, _GH_REPO.strip(), _state_to_save)
             if _save_ok:
                 st.success("✅ Salvo no GitHub")
             else:
                 st.error(f"❌ Erro: {_save_msg}")
         else:
             st.info("ℹ️ Sem dados para salvar.")
+        if st.button("🔄 Recarregar dados salvos", use_container_width=True):
+            st.session_state.ls_loaded = False
+            # Limpa dados atuais para forçar reload do GitHub
+            for _k in _PERSIST_KEYS:
+                if _k in st.session_state:
+                    del st.session_state[_k]
+            st.rerun()
 
 # ── Botão Apresentar / Modo Edição no rodapé ─────────────────────────────────
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
