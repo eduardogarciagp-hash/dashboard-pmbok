@@ -83,7 +83,7 @@
     "Business Data Fabric": 0.98,
     "Cockpit Engenharia": 1.02,
     "Esteira Analytics": 0.97,
-    "Demonstrativo Financeiro": 0.97,
+    "Demonstrativo Financeiro": 0.0,
     "Automacao Order to Cash": 0.0,
     "IA Copilot": 0.0
   },
@@ -107,7 +107,7 @@
       "termino": "2026/11/30"
     },
     "Demonstrativo Financeiro": {
-      "idp": 0.97,
+      "idp": 0.0,
       "pct": 0,
       "inicio": "",
       "termino": ""
