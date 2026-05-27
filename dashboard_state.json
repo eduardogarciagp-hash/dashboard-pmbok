@@ -126,8 +126,8 @@
     }
   },
   "projetos_extras": [],
-  "kpi_upstream": 1,
-  "kpi_downstream": 0,
+  "kpi_upstream": 3,
+  "kpi_downstream": 4,
   "marcos_override": {
     "Business Data Fabric": [
       {
