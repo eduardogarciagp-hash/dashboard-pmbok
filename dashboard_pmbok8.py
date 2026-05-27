@@ -467,22 +467,6 @@ def _ensure_proj(proj):
         'is_milestone': False, 'is_summary': False, 'desvio_dias': None,
     }])
 
-# Lista dinâmica: fixos + extras adicionados pelo usuário
-PROJETOS_PORTFOLIO = PROJETOS_FIXOS + st.session_state.get('projetos_extras', [])
-projetos_disp = PROJETOS_PORTFOLIO
-
-dfs = []
-for proj in PROJETOS_PORTFOLIO:
-    dfs.append(_ensure_proj(proj))
-    if not df_xml.empty:
-        filhas = df_xml[(df_xml['projeto']==proj) & (df_xml['nivel']>1)]
-        if not filhas.empty:
-            dfs.append(filhas)
-
-df_view = build_df(pd.concat(dfs, ignore_index=True)) if dfs else pd.DataFrame()
-# Lista dinâmica: fixos + extras
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 # ──────────────────────────────────────────────────────────────────────────────
 # 7. PERSISTENCIA VIA GITHUB API
@@ -585,6 +569,23 @@ if _qp_marcos:
                 st.session_state.marcos_override[_proj] = _mlist
     except:
         pass
+
+
+
+# Lista dinâmica: fixos + extras adicionados pelo usuário
+PROJETOS_PORTFOLIO = PROJETOS_FIXOS + st.session_state.get('projetos_extras', [])
+projetos_disp = PROJETOS_PORTFOLIO
+
+dfs = []
+for proj in PROJETOS_PORTFOLIO:
+    dfs.append(_ensure_proj(proj))
+    if not df_xml.empty:
+        filhas = df_xml[(df_xml['projeto']==proj) & (df_xml['nivel']>1)]
+        if not filhas.empty:
+            dfs.append(filhas)
+
+df_view = build_df(pd.concat(dfs, ignore_index=True)) if dfs else pd.DataFrame()
+# Lista dinâmica: fixos + extras
 
 
 if 'modo_apresentacao' not in st.session_state:
