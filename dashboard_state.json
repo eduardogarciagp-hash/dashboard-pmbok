@@ -5,7 +5,7 @@
         "titulo": "Implantação e Implementação - Revisão da minuta do contrato - Caminho critico do projeto",
         "impacto": "Atividade com 63% planejado e 0% concluídos. Ainda em processo de verificação de informações do fornecedor. Deadline para revisão da minuta pelo jurídico 02/06 (menos de 15 dias de SLA em relação a hoje).",
         "causa": "1. Treinamento Técnico de Data Analysts com SPI=0,27 e Data Transforms praticamente não iniciado. 2. Publicação da Política de Governança de Dados (Abr/2026) zerada — sem política publicada não há base normativa para o programa. 3. Domínios Indústria (55%) e Agropecuária (52%) com catálogos de dados e monitoramento incompletos. 4. Processo de Quality Gate definido mas sem aplicação nos domínios ativos.",
-        "plano": "1. [Imediato] PMO convoca reunião de crise com DataEX/HVAR até 27/Mai para nivelamento de capacidade — foco nos épicos 3 a 6 do DOWNStrea"
+        "plano": "Pedir prioridade e cobrar uma data para resolução da pendencia com a área responsável."
       },
       {
         "titulo": "Teste git",
