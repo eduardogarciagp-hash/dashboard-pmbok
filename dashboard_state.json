@@ -254,6 +254,30 @@
         "data": "2026-11-30",
         "pct": 0
       }
+    ],
+    "Demonstrativo Financeiro": [
+      {
+        "nome": "Definir Fornecedor",
+        "data": "2026-05-28",
+        "pct": 0
+      },
+      {
+        "nome": "Aprovar TAP",
+        "data": "2026-06-01",
+        "pct": 0
+      },
+      {
+        "nome": "T2E 26/06",
+        "data": "2026-06-26",
+        "pct": 0
+      }
+    ],
+    "Automacao Order to Cash": [
+      {
+        "nome": "Aquisição e Contrato",
+        "data": "2026-07-01",
+        "pct": 0
+      }
     ]
   }
 }
