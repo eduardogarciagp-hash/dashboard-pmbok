@@ -277,6 +277,33 @@
         "nome": "Aquisição e Contrato",
         "data": "2026-07-01",
         "pct": 0
+      },
+      {
+        "nome": "Discovery",
+        "data": "2026-05-29",
+        "pct": 80
+      }
+    ],
+    "IA Copilot": [
+      {
+        "nome": "Execução PoC",
+        "data": "2026-06-23",
+        "pct": 0
+      },
+      {
+        "nome": "Aprovar TAP",
+        "data": "2026-07-01",
+        "pct": 0
+      },
+      {
+        "nome": "Aquisição e Contrato",
+        "data": "2026-08-26",
+        "pct": 0
+      },
+      {
+        "nome": "T2E",
+        "data": "2026-08-31",
+        "pct": 0
       }
     ]
   }
