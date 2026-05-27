@@ -2061,7 +2061,7 @@ for proj in projetos_gov:
                 if not any([impacto, plano]): continue
                 if idx > 0:
                     st.markdown("<hr style='border:1px solid #F0F2F6;margin:14px 0'>", unsafe_allow_html=True)
-                st.markdown(f"**{titulo}**", unsafe_allow_html=False)
+                st.markdown(f"<strong style='font-size:14px;color:#1B2A4A'>{titulo}</strong>", unsafe_allow_html=True)
                 c1, c2 = st.columns(2)
                 with c1:
                     st.markdown(f"<div style='font-size:10px;font-weight:700;color:#9AA5BE;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px'>📌 Impacto no Negócio</div><div style='font-size:13px;color:#1B2A4A;line-height:1.6'>{impacto or '—'}</div>", unsafe_allow_html=True)
@@ -2141,11 +2141,11 @@ for proj in projetos_gov:
             with col_add:
                 if st.button("➕ Adicionar ponto crítico", key=f"add_{k}"):
                     st.session_state.gov_data[k].append({"titulo":"","impacto":"","causa":"","plano":""})
-                    st.rerun()
+                    # Não usar st.rerun() aqui — preserva o estado do roadmap JS
+                    st.session_state[f"edit_mode_{k}"] = True
             with col_save:
                 if st.button("✅ Concluir edição", key=f"btn_save_{k}", type="primary"):
                     st.session_state[f"edit_mode_{k}"] = False
-                    st.rerun()
 
 # 12. EXPORTAR RELATÓRIO
 # ──────────────────────────────────────────────────────────────────────────────
