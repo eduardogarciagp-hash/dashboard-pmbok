@@ -425,21 +425,45 @@ else:
 if 'proj_manual' not in st.session_state:
     st.session_state.proj_manual = {}
 
+def _safe_ts(val):
+    """Converte qualquer valor de data para Timestamp — nunca lança exceção."""
+    if not val or val in ('', 'NaT', 'None', 'null'):
+        return pd.NaT
+    try:
+        # Se for número (timestamp em ms), converte
+        v = float(val)
+        if v > 1e10:  # ms epoch
+            return pd.Timestamp(v, unit='ms')
+        return pd.NaT
+    except (ValueError, TypeError):
+        pass
+    try:
+        return pd.Timestamp(str(val)[:10])  # usa só AAAA-MM-DD
+    except:
+        return pd.NaT
+
 def _ensure_proj(proj):
     if not df_xml.empty:
         rows = df_xml[(df_xml['projeto']==proj) & (df_xml['nivel']==1)]
         if not rows.empty:
             return rows
     m = st.session_state.proj_manual.get(proj, {})
-    idp_v = float(m['idp']) if m.get('idp') else None
+    try:
+        idp_v = float(m['idp']) if m.get('idp') else None
+    except:
+        idp_v = None
+    try:
+        pct_v = float(m.get('pct', 0))
+    except:
+        pct_v = 0.0
     return pd.DataFrame([{
         'projeto': proj, 'uid': '0', 'nome': proj,
-        'nivel': 1, 'pct': float(m.get('pct', 0)),
+        'nivel': 1, 'pct': pct_v,
         'pv': 0.0, 'ev': 0.0, 'spi': idp_v,
         'status': '', 'resp': '',
-        'inicio':   pd.Timestamp(m['inicio'])  if m.get('inicio')  else pd.NaT,
-        'termino':  pd.Timestamp(m['termino']) if m.get('termino') else pd.NaT,
-        'baseline_termino': pd.NaT,
+        'inicio':            _safe_ts(m.get('inicio')),
+        'termino':           _safe_ts(m.get('termino')),
+        'baseline_termino':  pd.NaT,
         'is_milestone': False, 'is_summary': False, 'desvio_dias': None,
     }])
 
