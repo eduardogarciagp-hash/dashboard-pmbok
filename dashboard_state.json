@@ -179,6 +179,11 @@
         "nome": "Hypercare",
         "data": "2026-11-23",
         "pct": 0
+      },
+      {
+        "nome": "Inicio Upstream",
+        "data": "2025-12-01",
+        "pct": 100
       }
     ],
     "Cockpit Engenharia": [
