@@ -80,7 +80,7 @@
     ]
   },
   "idp_override": {
-    "Business Data Fabric": 0.0,
+    "Business Data Fabric": 0.98,
     "Cockpit Engenharia": 0.0,
     "Esteira Analytics": 0.0,
     "Demonstrativo Financeiro": 0.0,
@@ -89,7 +89,7 @@
   },
   "proj_manual": {
     "Business Data Fabric": {
-      "idp": 0.0,
+      "idp": 0.98,
       "pct": 0,
       "inicio": "",
       "termino": ""
@@ -141,18 +141,43 @@
         "pct": 0
       },
       {
-        "nome": "Assinatura Contrato Implantação",
+        "nome": "Assinatura Contrato Implantação E Implementação",
         "data": "2026-06-09",
         "pct": 0
       },
       {
-        "nome": "Publicação Política Governança",
-        "data": "2026-04-30",
+        "nome": "T2R - Transferência de conhecimento",
+        "data": "2026-12-08",
         "pct": 0
       },
       {
-        "nome": "Encerramento do Projeto",
-        "data": "2026-12-11",
+        "nome": "T2E",
+        "data": "2026-03-12",
+        "pct": 100
+      },
+      {
+        "nome": "Assinatura Contrato - Licenciamento",
+        "data": "2026-05-25",
+        "pct": 100
+      },
+      {
+        "nome": "SAC Test Tenant - Homologação Negócio",
+        "data": "2026-06-19",
+        "pct": 0
+      },
+      {
+        "nome": "Conclusão Sprint 8 + Validação + CAB (jun - out)",
+        "data": "2026-10-16",
+        "pct": 0
+      },
+      {
+        "nome": "Go Live",
+        "data": "2026-10-19",
+        "pct": 0
+      },
+      {
+        "nome": "Hypercare",
+        "data": "2026-11-23",
         "pct": 0
       }
     ],
