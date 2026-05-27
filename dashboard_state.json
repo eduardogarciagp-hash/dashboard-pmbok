@@ -133,101 +133,91 @@
       {
         "nome": "Kick-off Projeto",
         "data": "2026-03-25",
-        "pct": 100.0
+        "pct": 100
       },
       {
         "nome": "Assinatura Contrato MS Fabric",
         "data": "2026-06-09",
-        "pct": 0.0
+        "pct": 0
       },
       {
         "nome": "Assinatura Contrato Implantação",
         "data": "2026-06-09",
-        "pct": 0.0
-      },
-      {
-        "nome": "Ativação SKU / Go-Live Fabric",
-        "data": "2026-06-23",
-        "pct": 0.0
+        "pct": 0
       },
       {
         "nome": "Publicação Política Governança",
         "data": "2026-04-30",
-        "pct": 0.0
-      },
-      {
-        "nome": "Demanda Concluída – SAC GO-LIVE",
-        "data": "2026-07-02",
-        "pct": 0.0
+        "pct": 0
       },
       {
         "nome": "Encerramento do Projeto",
         "data": "2026-12-11",
-        "pct": 0.0
+        "pct": 0
       }
     ],
     "Cockpit Engenharia": [
       {
         "nome": "Aprovação TAP",
         "data": "2026-05-22",
-        "pct": 64.0
+        "pct": 64
       },
       {
         "nome": "Kick-off Fase 1",
         "data": "2026-06-05",
-        "pct": 100.0
+        "pct": 100
       },
       {
         "nome": "Assinatura Contrato Fase 2",
         "data": "2026-08-14",
-        "pct": 0.0
+        "pct": 0
       },
       {
         "nome": "GO-LIVE",
         "data": "2026-10-29",
-        "pct": 0.0
+        "pct": 0
       }
     ],
     "Esteira Analytics": [
       {
         "nome": "Definição Entregas Q1",
         "data": "2026-01-02",
-        "pct": 100.0
+        "pct": 100
       },
       {
         "nome": "Assinatura Contrato Estratégia",
         "data": "2026-03-06",
-        "pct": 100.0
+        "pct": 100
       },
       {
         "nome": "Go Live Estratégia de Dados",
         "data": "2026-04-30",
-        "pct": 100.0
+        "pct": 100
       },
       {
         "nome": "Go Live CEO Digital Boardroom",
         "data": "2026-04-30",
-        "pct": 100.0
+        "pct": 100
       },
       {
         "nome": "Conclusão Entregas Q1",
         "data": "2026-05-27",
-        "pct": 87.0
+        "pct": 87
       },
       {
         "nome": "Conclusão Entregas Q2",
         "data": "2026-06-30",
-        "pct": 0.0
+        "pct": 0
       },
       {
         "nome": "Conclusão Entregas Q3",
         "data": "2026-09-30",
-        "pct": 0.0
+        "pct": 0
       },
       {
         "nome": "Conclusão Entregas Q4",
         "data": "2026-12-31",
-        "pct": 0.0
+        "pct": 0
       }
     ]
   }
