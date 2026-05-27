@@ -455,9 +455,27 @@ df_view = build_df(pd.concat(dfs, ignore_index=True)) if dfs else pd.DataFrame()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 7. CABEÇALHO
+# 7. PERSISTENCIA localStorage + CABECALHO
 # ──────────────────────────────────────────────────────────────────────────────
-# ── Modo Apresentação ────────────────────────────────────────────────────────
+_PERSIST_KEYS = ['gov_data', 'idp_override', 'proj_manual',
+                 'projetos_extras', 'kpi_upstream', 'kpi_downstream']
+
+if 'ls_loaded' not in st.session_state:
+    st.session_state.ls_loaded = False
+
+if not st.session_state.ls_loaded:
+    _qp = st.query_params.get('ls_data', '')
+    if _qp:
+        try:
+            import urllib.parse
+            _saved = json.loads(urllib.parse.unquote(_qp))
+            for _k, _v in _saved.items():
+                if _k in _PERSIST_KEYS and _k not in st.session_state:
+                    st.session_state[_k] = _v
+        except:
+            pass
+    st.session_state.ls_loaded = True
+
 if 'modo_apresentacao' not in st.session_state:
     st.session_state.modo_apresentacao = False
 
@@ -2619,8 +2637,36 @@ with _sb_export_placeholder.container():
         )
 
 
+# ── Auto-save localStorage ──────────────────────────────────────────────────
+import urllib.parse as _ulp
+_state_to_save = {}
+for _k in _PERSIST_KEYS:
+    if _k in st.session_state:
+        try:
+            json.dumps(st.session_state[_k])
+            _state_to_save[_k] = st.session_state[_k]
+        except: pass
+_state_json = json.dumps(_state_to_save, ensure_ascii=False, default=str)
+_state_json_js = _state_json.replace('\\', '\\\\').replace('`', '\\`')
+
+st.components.v1.html(
+    '<script>'
+    '(function(){'
+    'try{'
+    'var d=`' + _state_json_js + '`;'
+    'localStorage.setItem("dashboard_pmo_state",d);'
+    'var u=new URL(window.parent.location.href);'
+    'u.searchParams.set("ls_data",encodeURIComponent(d));'
+    'window.parent.history.replaceState({},"",u.toString());'
+    '}catch(e){console.warn("save failed",e)}'
+    '})();'
+    '</script>',
+    height=0
+)
+
 # ── Botão Apresentar / Modo Edição no rodapé ─────────────────────────────────
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
+
 _col_foot_l, _col_foot_r = st.columns([6, 1])
 with _col_foot_l:
     st.markdown(
