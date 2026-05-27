@@ -93,7 +93,7 @@
     "Esteira Analytics": 0.97,
     "Demonstrativo Financeiro": 1.0,
     "Automacao Order to Cash": 1.0,
-    "IA Copilot": 0.0,
+    "IA Copilot": 1.0,
     "Poultry Trader": 1.0
   },
   "proj_manual": {
@@ -128,7 +128,7 @@
       "termino": ""
     },
     "IA Copilot": {
-      "idp": 0.0,
+      "idp": 1.0,
       "pct": 0,
       "inicio": "",
       "termino": ""
