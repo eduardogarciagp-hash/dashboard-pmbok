@@ -81,7 +81,7 @@
   },
   "idp_override": {
     "Business Data Fabric": 0.98,
-    "Cockpit Engenharia": 0.0,
+    "Cockpit Engenharia": 1.02,
     "Esteira Analytics": 0.0,
     "Demonstrativo Financeiro": 0.0,
     "Automacao Order to Cash": 0.0,
@@ -95,7 +95,7 @@
       "termino": "2025/12/08"
     },
     "Cockpit Engenharia": {
-      "idp": 0.0,
+      "idp": 1.02,
       "pct": 0,
       "inicio": "",
       "termino": ""
