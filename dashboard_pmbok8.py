@@ -393,6 +393,11 @@ with st.sidebar:
     _sb_idp_placeholder = st.empty()
     st.markdown('---')
 
+    # ── Status de persistência ───────────────────────────────────────────────
+    st.markdown('---')
+    st.markdown('### 💾 Status')
+    _sb_status_placeholder = st.empty()
+
     # ── Exportar ──────────────────────────────────────────────────────────────
     st.markdown('### 📥 Exportar')
     _sb_export_placeholder = st.empty()
@@ -482,9 +487,12 @@ def _gh_load(token, repo):
             import base64 as _b64
             content_b64 = r.json().get('content', '')
             return json.loads(_b64.b64decode(content_b64).decode('utf-8'))
-    except:
-        pass
-    return {}
+        elif r.status_code == 404:
+            return {}  # arquivo ainda não existe, normal na primeira vez
+        else:
+            return {'_load_error': f'HTTP {r.status_code}: {r.text[:200]}'}
+    except Exception as e:
+        return {'_load_error': str(e)}
 
 def _gh_save(token, repo, data):
     """Salva estado no GitHub via API."""
@@ -2709,8 +2717,21 @@ for _k in _PERSIST_KEYS:
             _state_to_save[_k] = st.session_state[_k]
         except: pass
 
-if _state_to_save and _GH_TOKEN and _GH_REPO:
-    _gh_save(_GH_TOKEN, _GH_REPO, _state_to_save)
+# Mostra status no sidebar
+with _sb_status_placeholder.container():
+    if not _GH_TOKEN:
+        st.warning("⚠️ GITHUB_TOKEN não configurado nos Secrets.")
+    elif not _GH_REPO:
+        st.warning("⚠️ GITHUB_REPO não configurado nos Secrets.")
+    else:
+        if _state_to_save:
+            _save_ok = _gh_save(_GH_TOKEN, _GH_REPO, _state_to_save)
+            if _save_ok:
+                st.success("✅ Salvo no GitHub")
+            else:
+                st.error("❌ Erro ao salvar. Verifique o token.")
+        else:
+            st.info("ℹ️ Sem dados para salvar.")
 
 # ── Botão Apresentar / Modo Edição no rodapé ─────────────────────────────────
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
