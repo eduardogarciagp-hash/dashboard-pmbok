@@ -94,7 +94,7 @@
     "Demonstrativo Financeiro": 0.0,
     "Automacao Order to Cash": 0.0,
     "IA Copilot": 0.0,
-    "Poultry Trader": 0.0
+    "Poultry Trader": 1.0
   },
   "proj_manual": {
     "Business Data Fabric": {
@@ -134,7 +134,7 @@
       "termino": ""
     },
     "Poultry Trader": {
-      "idp": 0.0,
+      "idp": 1.0,
       "pct": 0,
       "inicio": "",
       "termino": ""
@@ -320,6 +320,13 @@
       {
         "nome": "T2E",
         "data": "2026-08-31",
+        "pct": 0
+      }
+    ],
+    "Poultry Trader": [
+      {
+        "nome": "Kick-off",
+        "data": "2026-06-08",
         "pct": 0
       }
     ]
