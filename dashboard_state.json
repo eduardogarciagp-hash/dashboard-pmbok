@@ -77,6 +77,14 @@
         "causa": "",
         "plano": ""
       }
+    ],
+    "Poultry_Trader": [
+      {
+        "titulo": "",
+        "impacto": "",
+        "causa": "",
+        "plano": ""
+      }
     ]
   },
   "idp_override": {
@@ -85,7 +93,8 @@
     "Esteira Analytics": 0.97,
     "Demonstrativo Financeiro": 0.0,
     "Automacao Order to Cash": 0.0,
-    "IA Copilot": 0.0
+    "IA Copilot": 0.0,
+    "Poultry Trader": 0.0
   },
   "proj_manual": {
     "Business Data Fabric": {
@@ -123,9 +132,17 @@
       "pct": 0,
       "inicio": "",
       "termino": ""
+    },
+    "Poultry Trader": {
+      "idp": 0.0,
+      "pct": 0,
+      "inicio": "",
+      "termino": ""
     }
   },
-  "projetos_extras": [],
+  "projetos_extras": [
+    "Poultry Trader"
+  ],
   "kpi_upstream": 3,
   "kpi_downstream": 4,
   "marcos_override": {
