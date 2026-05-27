@@ -43,7 +43,7 @@
     "Esteira_Analytics": [
       {
         "titulo": "Revisão do Escopo com GE",
-        "impacto": "A E",
+        "impacto": "Essa data foi replanejada para 06/05 pois tivemos que envolver mais pessoas e areas no mapeamento ",
         "causa": "1. CEO Digital Boardroom com SPI=0,37 puxando o índice do sub-projeto para baixo. 2. UPStream concluído (100%) mas sem transição estruturada para o DOWNStream — gap de handoff entre fases. 3. Capacidade técnica da consultoria Bridge não contratada formalmente para a fase de execução.",
         "plano": "1. [Até 28/Mai] Reunião de alinhamento com Bridge para definir MVP dos 4 painéis — escopo mínimo viável para Go-Live Nov/2026. 2. [Até 30/Mai] Nomear Product Owner interno do CEO Digital Boardroom com dedicação mínima de 40%. 3. [Até 05/Jun] Mapear os dados-fonte de cada painel e validar disponibilidade na camada analítica — sem dados não há painel. 4. [Jun/2026] Definir Go-Live parcial como meta: 2 painéis até Ago/2026, 2 painéis restantes até Nov/2026. 5. [Gate Jun/2026] Se aprovação Bridge não concluída, escalar ao CIO com análise de impacto formal."
       },
