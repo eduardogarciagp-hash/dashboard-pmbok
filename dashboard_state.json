@@ -188,16 +188,6 @@
     ],
     "Cockpit Engenharia": [
       {
-        "nome": "Aprovação TAP",
-        "data": "2026-05-22",
-        "pct": 64
-      },
-      {
-        "nome": "Kick-off Fase 1",
-        "data": "2026-06-05",
-        "pct": 100
-      },
-      {
         "nome": "Assinatura Contrato Fase 2",
         "data": "2026-08-14",
         "pct": 0
@@ -205,6 +195,21 @@
       {
         "nome": "GO-LIVE",
         "data": "2026-10-29",
+        "pct": 0
+      },
+      {
+        "nome": "Aprovação  TAP",
+        "data": "2026-05-26",
+        "pct": 100
+      },
+      {
+        "nome": "Testes Unitários e integrados",
+        "data": "2026-05-29",
+        "pct": 94
+      },
+      {
+        "nome": "Analise Dash - SolvePlan",
+        "data": "2026-06-15",
         "pct": 0
       }
     ],
