@@ -25,7 +25,13 @@
         "titulo": "Testes Unitários e Testes Integrados",
         "impacto": "Os testes unitários foram concluídos no dia 26/06 (prazo era 22/05), porém não impactou na data de entrega dos testes integrados previstos para 29/06.\nAmanda Sousa já esta em posse do ambiente de QAS desde 26/06 e foi orientada pelo time da Intechpro a respeito.\n",
         "causa": "1. Recursos técnicos divididos entre finalização dos testes unitários e início das análises da FASE 2 (SolvePlan). 2. Prazo apertado: Testes Unitários previsto para terminar 26/Mai, Integrados para 29/Mai — janela de apenas 3 dias. 3. Critério de aceite dos testes não formalmente validado com Amanda antes da execução.",
-        "plano": "1. [Esta semana] Dumont agenda sessão de 30 minutos com Marcel — leva resumo executivo de 1 página com os riscos de atraso mapeados. 2. [Até 30/Mai] Se Marcel não aprovar, PMO escala formalmente ao patrocinador executivo com registro documentado. 3. [Imediato] Paralelizar o que for possível: iniciar análise dos dashs SolvePlan (FASE 2 UPStream) independente da TAP. 4. [Até 05/Jun] Revisão do impacto no cronograma da FASE 2: mapear quais atividades podem iniciar sem TAP e quais ficam bloqueadas. 5. [Contingência] Se TAP não aprovada até 10/Jun, revisar data do Go-Live com sponsor."
+        "plano": "Criamos um grupo no teams com a Thalita, Amanda Sousa e Marcel para monitorarmos o andamento dos testes e não perdermos a data fim da atividade de 29/06."
+      },
+      {
+        "titulo": "",
+        "impacto": "",
+        "causa": "",
+        "plano": ""
       }
     ],
     "Esteira_Analytics": [
