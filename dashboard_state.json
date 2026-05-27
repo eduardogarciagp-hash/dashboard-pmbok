@@ -1,0 +1,119 @@
+{
+  "gov_data": {
+    "Business_Data_Fabric": [
+      {
+        "titulo": "Implantação MS Fabric — IDP 0,62 com DOWNStream em colapso (SPI=0,30)",
+        "impacto": "O projeto ",
+        "causa": "1. Treinamento Técnico de Data Analysts com SPI=0,27 e Data Transforms praticamente não iniciado. 2. Publicação da Política de Governança de Dados (Abr/2026) zerada — sem política publicada não há base normativa para o programa. 3. Domínios Indústria (55%) e Agropecuária (52%) com catálogos de dados e monitoramento incompletos. 4. Processo de Quality Gate definido mas sem aplicação nos domínios ativos.",
+        "plano": "1. [Imediato] PMO "
+      }
+    ],
+    "Cockpit_Engenharia": [
+      {
+        "titulo": "Aprovação TAP por Marcel — Gargalo crítico no caminho do projeto (SPI=0,64)",
+        "impacto": "O Cockpit Engenharia opera com IDP=0,98 (fórmula MS Project), indicando desempenho geral satisfatório. Porém, a aprovação da TAP por Marcel com SPI=0,64 é o único ponto de falha que pode comprometer toda a FASE 2. Sem TAP formalmente aprovada: o contrato com IntechPRO não pode ser assinado, o Kick-off da FASE 2 (ajustes SolvePlan) não pode ser formalizado, e o Go-Live de Out/2026 fica em risco de postergação. O projeto está essencialmente com uma dependência crítica de uma única pessoa em uma única atividade.",
+        "causa": "1. Marcel com disponibilidade insuficiente no período — múltiplas demandas concorrentes fora do projeto. 2. Ciclo de aprovação mais longo que o planejado: o processo de aprovação da TAP (SPI=0,85 na fase de solicitação) não foi priorizado adequadamente. 3. Ausência de escalada formal: o PMO não ativou o caminho de escalada executiva dentro do prazo estabelecido. 4. Dependência sequencial rígida: aprovação TAP → assinatura contrato → Kick-off FASE 2, sem paralelismo possível.",
+        "plano": "1. [Esta semana] Dumont agenda sessão de 30 minutos com Marcel — leva resumo executivo de 1 página com os riscos de atraso mapeados. 2. [Até 30/Mai] Se Marcel não aprovar, PMO escala formalmente ao patrocinador executivo com registro documentado. 3. [Imediato] Paralelizar o que for possível: iniciar análise dos dashs SolvePlan (FASE 2 UPStream) independente da TAP. 4. [Até 05/Jun] Revisão do impacto no cronograma da FASE 2: mapear quais atividades podem iniciar sem TAP e quais ficam bloqueadas. 5. [Contingência] Se TAP não aprovada até 10/Jun, revisar data do Go-Live com sponsor."
+      },
+      {
+        "titulo": "Testes FASE 1 — Integrados não iniciados, risco de qualidade no Go-Live",
+        "impacto": "O DOWNStream FASE 1 está em 90% de conclusão, mas os Testes Integrados estão em 0% — ainda não iniciados. Os Testes Unitários atingiram 95%, mas com cobertura possivelmente abaixo do critério de aceite da EF aprovada por Amanda (Key-user). Ir ao Go-Live sem testes integrados completos representa risco real de defeitos em produção nas interfaces entre módulos do Cockpit, podendo gerar retrabalho pós-implantação e impacto na operação de engenharia.",
+        "causa": "1. Recursos técnicos divididos entre finalização dos testes unitários e início das análises da FASE 2 (SolvePlan). 2. Prazo apertado: Testes Unitários previsto para terminar 26/Mai, Integrados para 29/Mai — janela de apenas 3 dias. 3. Critério de aceite dos testes não formalmente validado com Amanda antes da execução.",
+        "plano": "1. [Até 29/Mai] Concluir 100% dos Testes Unitários — sem desvio de recursos para FASE 2. 2. [27–29/Mai] Validação formal dos resultados dos testes com Amanda (Key-user) — assinatura do termo de aceite. 3. [Até 02/Jun] Iniciar e concluir Testes Integrados — prioridade máxima na semana. 4. [Até 05/Jun] Reunião de Go/No-Go para liberação do ambiente de homologação com PMO e Key-user. 5. Apenas após aceite dos testes integrados iniciar a FASE 2."
+      }
+    ],
+    "Esteira_Analytics": [
+      {
+        "titulo": "CEO Digital Boardroom — Etapa 3 com SPI=0,05, Go-Live Nov/2026 em risco severo",
+        "impacto": "A Etapa 3 do CEO Digital Boardroom — entrega dos 4 painéis executivos — apresenta SPI=0,05 com apenas 4% concluído de 4,86% planejado. Esse é o pior índice de todo o portfólio. Com Go-Live previsto para 30/Nov/2026, o projeto tem menos de 7 meses para entregar 4 painéis executivos complexos, incluindo indicadores críticos da C-Suite. A não entrega compromete diretamente o pilar de 'Visibilidade Executiva Digital' do programa de transformação de dados da empresa, gerando risco reputacional do PMO perante a diretoria.",
+        "causa": "1. Escopo da Etapa 3 ainda indefinido: ausência de owner designado para os 4 painéis e KPIs da C-Suite não mapeados. 2. Aprovação da proposta Bridge (consultoria) pendente — sem contrato, não há recursos técnicos alocados para a Etapa 3. 3. Transição formal entre Etapa 2 (Estratégia de Dados, 100% concluída) e Etapa 3 não executada — gap de governança entre fases. 4. Dados-fonte dos painéis executivos não estruturados: CEO Digital Boardroom depende de dados que ainda não estão disponíveis na camada analítica.",
+        "plano": "1. [Até 28/Mai] Reunião de alinhamento com Bridge para definir MVP dos 4 painéis — escopo mínimo viável para Go-Live Nov/2026. 2. [Até 30/Mai] Nomear Product Owner interno do CEO Digital Boardroom com dedicação mínima de 40%. 3. [Até 05/Jun] Mapear os dados-fonte de cada painel e validar disponibilidade na camada analítica — sem dados não há painel. 4. [Jun/2026] Definir Go-Live parcial como meta: 2 painéis até Ago/2026, 2 painéis restantes até Nov/2026. 5. [Gate Jun/2026] Se aprovação Bridge não concluída, escalar ao CIO com análise de impacto formal."
+      },
+      {
+        "titulo": "Entregas Q2 — SPI=0,54 com escopo 'A Definir' e ausência de owner",
+        "impacto": "As Entregas Q2 da Esteira Analytics (Abr–Jun/2026) têm SPI=0,54 com o único entregável listado como 'A Definir'. Com o encerramento do Q2 previsto para 30/Jun/2026, existe risco concreto de o quarter ser encerrado sem nenhuma entrega formal registrada. Isso representa perda de valor entregue no período e acúmulo de pressão sobre Q3 e Q4, que já têm seus próprios escopos indefinidos.",
+        "causa": "1. UPStream Esteira com SPI=0,50: o processo de definição de entregas Q2 não foi concluído dentro do prazo planejado. 2. Ausência de owner designado para as entregas Q2 — nenhum responsável formal por escopo, prazo e qualidade. 3. Backlog de demandas das áreas não foi priorizado para o período Q2, gerando vazio de planejamento.",
+        "plano": "1. [Até 27/Mai] Convocar sessão de escopo Q2 com todas as áreas demandantes — output: lista priorizada de no mínimo 3 entregas. 2. [Até 30/Mai] Nomear owner por entrega Q2 com comprometimento formal de prazo. 3. [Paralelo] Iniciar definição de entregas Q3 já nessa sessão — não repetir o mesmo erro no próximo quarter. 4. [Semanal] PMO monitora progresso Q2 com alerta vermelho ao sponsor se 30/Jun chegar sem entregas formalmente aceitas."
+      },
+      {
+        "titulo": "Estratégia de Dados e Digital Boardroom — IDP 0,51 com DOWNStream crítico",
+        "impacto": "O sub-projeto Estratégia de Dados e Digital Boardroom tem IDP=0,51 — realiza metade do trabalho planejado. O DOWNStream deste sub-projeto, que engloba o CEO Digital Boardroom, está com SPI=0,50 e Fim=Nov/2026. Se o ritmo não for corrigido, o encerramento do programa de Estratégia de Dados ficará incompleto, comprometendo a entrega do roadmap digital prometido para 2026.",
+        "causa": "1. CEO Digital Boardroom com SPI=0,37 puxando o índice do sub-projeto para baixo. 2. UPStream concluído (100%) mas sem transição estruturada para o DOWNStream — gap de handoff entre fases. 3. Capacidade técnica da consultoria Bridge não contratada formalmente para a fase de execução.",
+        "plano": "1. Tratar o CEO Digital Boardroom como projeto independente com PMO dedicado a partir de Jun/2026. 2. Formalizar o handoff entre UPStream (concluído) e DOWNStream com ata de reunião e aceite do patrocinador. 3. Contrato Bridge: definir prazo limite de assinatura (05/Jun) com cláusula de penalidade por atraso no início. 4. Revisão mensal do IDP do sub-projeto com o sponsor — alerta se IDP não atingir 0,70 até Jul/2026."
+      }
+    ],
+    "Demonstrativo_Financeiro": [
+      {
+        "titulo": "",
+        "impacto": "",
+        "causa": "",
+        "plano": ""
+      }
+    ],
+    "Automacao_Order_to_Cash": [
+      {
+        "titulo": "",
+        "impacto": "",
+        "causa": "",
+        "plano": ""
+      }
+    ],
+    "IA_Copilot": [
+      {
+        "titulo": "",
+        "impacto": "",
+        "causa": "",
+        "plano": ""
+      }
+    ]
+  },
+  "idp_override": {
+    "Business Data Fabric": 0.0,
+    "Cockpit Engenharia": 0.0,
+    "Esteira Analytics": 0.0,
+    "Demonstrativo Financeiro": 0.0,
+    "Automacao Order to Cash": 0.0,
+    "IA Copilot": 0.0
+  },
+  "proj_manual": {
+    "Business Data Fabric": {
+      "idp": 0.0,
+      "pct": 0,
+      "inicio": "",
+      "termino": ""
+    },
+    "Cockpit Engenharia": {
+      "idp": 0.0,
+      "pct": 0,
+      "inicio": "",
+      "termino": ""
+    },
+    "Esteira Analytics": {
+      "idp": 0.0,
+      "pct": 0,
+      "inicio": "",
+      "termino": ""
+    },
+    "Demonstrativo Financeiro": {
+      "idp": 0.0,
+      "pct": 0,
+      "inicio": "",
+      "termino": ""
+    },
+    "Automacao Order to Cash": {
+      "idp": 0.0,
+      "pct": 0,
+      "inicio": "",
+      "termino": ""
+    },
+    "IA Copilot": {
+      "idp": 0.0,
+      "pct": 0,
+      "inicio": "",
+      "termino": ""
+    }
+  },
+  "projetos_extras": [],
+  "kpi_upstream": 0,
+  "kpi_downstream": 0
+}
