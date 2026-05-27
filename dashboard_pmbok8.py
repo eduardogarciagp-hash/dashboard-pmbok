@@ -497,7 +497,7 @@ def _gh_load(token, repo):
 def _gh_save(token, repo, data):
     """Salva estado no GitHub via API."""
     if not token or not repo:
-        return False
+        return False, "token ou repo vazio"
     try:
         import base64 as _b64
         content_bytes = json.dumps(data, ensure_ascii=False,
@@ -507,8 +507,9 @@ def _gh_save(token, repo, data):
         # Pega SHA do arquivo atual (necessário para update)
         r_get = requests.get(
             f'https://api.github.com/repos/{repo}/contents/{_GH_FILE}',
-            headers={'Authorization': f'token {token}',
-                     'Accept': 'application/vnd.github.v3+json'},
+            headers={'Authorization': f'Bearer {token}',
+                     'Accept': 'application/vnd.github+json',
+                     'X-GitHub-Api-Version': '2022-11-28'},
             timeout=10
         )
         sha = r_get.json().get('sha', '') if r_get.status_code == 200 else ''
@@ -522,18 +523,20 @@ def _gh_save(token, repo, data):
 
         r_put = requests.put(
             f'https://api.github.com/repos/{repo}/contents/{_GH_FILE}',
-            headers={'Authorization': f'token {token}',
-                     'Accept': 'application/vnd.github.v3+json',
+            headers={'Authorization': f'Bearer {token}',
+                     'Accept': 'application/vnd.github+json',
+                     'X-GitHub-Api-Version': '2022-11-28',
                      'Content-Type': 'application/json'},
             json=payload,
             timeout=15
         )
         if r_put.status_code in (200, 201):
-            _gh_load.clear()   # invalida cache para próxima leitura
-            return True
-    except:
-        pass
-    return False
+            _gh_load.clear()
+            return True, "ok"
+        else:
+            return False, f"HTTP {r_put.status_code}: {r_put.text[:300]}"
+    except Exception as e:
+        return False, str(e)
 
 # Carrega estado na primeira abertura da sessão
 if 'ls_loaded' not in st.session_state:
@@ -2725,11 +2728,11 @@ with _sb_status_placeholder.container():
         st.warning("⚠️ GITHUB_REPO não configurado nos Secrets.")
     else:
         if _state_to_save:
-            _save_ok = _gh_save(_GH_TOKEN, _GH_REPO, _state_to_save)
+            _save_ok, _save_msg = _gh_save(_GH_TOKEN, _GH_REPO, _state_to_save)
             if _save_ok:
                 st.success("✅ Salvo no GitHub")
             else:
-                st.error("❌ Erro ao salvar. Verifique o token.")
+                st.error(f"❌ Erro: {_save_msg}")
         else:
             st.info("ℹ️ Sem dados para salvar.")
 
