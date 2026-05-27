@@ -328,6 +328,16 @@
         "nome": "Kick-off",
         "data": "2026-06-08",
         "pct": 0
+      },
+      {
+        "nome": "Projeto - Go Live",
+        "data": "2026-06-24",
+        "pct": 0
+      },
+      {
+        "nome": "SI - Segurança",
+        "data": "2026-10-31",
+        "pct": 0
       }
     ]
   }
