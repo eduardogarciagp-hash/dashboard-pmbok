@@ -83,7 +83,7 @@
     "Business Data Fabric": 0.98,
     "Cockpit Engenharia": 1.02,
     "Esteira Analytics": 0.0,
-    "Demonstrativo Financeiro": 0.0,
+    "Demonstrativo Financeiro": 0.97,
     "Automacao Order to Cash": 0.0,
     "IA Copilot": 0.0
   },
@@ -107,7 +107,7 @@
       "termino": "2026/12/31"
     },
     "Demonstrativo Financeiro": {
-      "idp": 0.0,
+      "idp": 0.97,
       "pct": 0,
       "inicio": "",
       "termino": ""
@@ -233,6 +233,26 @@
         "nome": "Revisão Escopo GE",
         "data": "2026-05-15",
         "pct": 70
+      },
+      {
+        "nome": "1° Painel - Industria",
+        "data": "2026-07-02",
+        "pct": 7
+      },
+      {
+        "nome": "2° Painel - TBD",
+        "data": "2026-07-31",
+        "pct": 0
+      },
+      {
+        "nome": "3° Painel - TBD",
+        "data": "2026-09-29",
+        "pct": 0
+      },
+      {
+        "nome": "4° Painel e Go Live",
+        "data": "2026-11-30",
+        "pct": 0
       }
     ]
   }
