@@ -455,26 +455,89 @@ df_view = build_df(pd.concat(dfs, ignore_index=True)) if dfs else pd.DataFrame()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 7. PERSISTENCIA localStorage + CABECALHO
+# ──────────────────────────────────────────────────────────────────────────────
+# 7. PERSISTENCIA VIA GITHUB API
 # ──────────────────────────────────────────────────────────────────────────────
 _PERSIST_KEYS = ['gov_data', 'idp_override', 'proj_manual',
                  'projetos_extras', 'kpi_upstream', 'kpi_downstream']
 
+_GH_TOKEN = st.secrets.get('GITHUB_TOKEN', '')
+_GH_REPO  = st.secrets.get('GITHUB_REPO',  '')
+_GH_FILE  = 'dashboard_state.json'
+_GH_API   = f'https://api.github.com/repos/{_GH_REPO}/contents/{_GH_FILE}'
+
+@st.cache_data(show_spinner=False, ttl=30)
+def _gh_load(token, repo):
+    """Carrega estado salvo do GitHub."""
+    if not token or not repo:
+        return {}
+    try:
+        r = requests.get(
+            f'https://api.github.com/repos/{repo}/contents/{_GH_FILE}',
+            headers={'Authorization': f'token {token}',
+                     'Accept': 'application/vnd.github.v3+json'},
+            timeout=10
+        )
+        if r.status_code == 200:
+            import base64 as _b64
+            content_b64 = r.json().get('content', '')
+            return json.loads(_b64.b64decode(content_b64).decode('utf-8'))
+    except:
+        pass
+    return {}
+
+def _gh_save(token, repo, data):
+    """Salva estado no GitHub via API."""
+    if not token or not repo:
+        return False
+    try:
+        import base64 as _b64
+        content_bytes = json.dumps(data, ensure_ascii=False,
+                                   indent=2, default=str).encode('utf-8')
+        content_b64   = _b64.b64encode(content_bytes).decode('utf-8')
+
+        # Pega SHA do arquivo atual (necessário para update)
+        r_get = requests.get(
+            f'https://api.github.com/repos/{repo}/contents/{_GH_FILE}',
+            headers={'Authorization': f'token {token}',
+                     'Accept': 'application/vnd.github.v3+json'},
+            timeout=10
+        )
+        sha = r_get.json().get('sha', '') if r_get.status_code == 200 else ''
+
+        payload = {
+            'message': 'auto-save dashboard state',
+            'content': content_b64,
+        }
+        if sha:
+            payload['sha'] = sha
+
+        r_put = requests.put(
+            f'https://api.github.com/repos/{repo}/contents/{_GH_FILE}',
+            headers={'Authorization': f'token {token}',
+                     'Accept': 'application/vnd.github.v3+json',
+                     'Content-Type': 'application/json'},
+            json=payload,
+            timeout=15
+        )
+        if r_put.status_code in (200, 201):
+            _gh_load.clear()   # invalida cache para próxima leitura
+            return True
+    except:
+        pass
+    return False
+
+# Carrega estado na primeira abertura da sessão
 if 'ls_loaded' not in st.session_state:
     st.session_state.ls_loaded = False
 
 if not st.session_state.ls_loaded:
-    _qp = st.query_params.get('ls_data', '')
-    if _qp:
-        try:
-            import urllib.parse
-            _saved = json.loads(urllib.parse.unquote(_qp))
-            for _k, _v in _saved.items():
-                if _k in _PERSIST_KEYS and _k not in st.session_state:
-                    st.session_state[_k] = _v
-        except:
-            pass
+    _saved = _gh_load(_GH_TOKEN, _GH_REPO)
+    for _k in _PERSIST_KEYS:
+        if _k in _saved and _k not in st.session_state:
+            st.session_state[_k] = _saved[_k]
     st.session_state.ls_loaded = True
+
 
 if 'modo_apresentacao' not in st.session_state:
     st.session_state.modo_apresentacao = False
@@ -2637,8 +2700,7 @@ with _sb_export_placeholder.container():
         )
 
 
-# ── Auto-save localStorage ──────────────────────────────────────────────────
-import urllib.parse as _ulp
+# ── Auto-save no GitHub ──────────────────────────────────────────────────────
 _state_to_save = {}
 for _k in _PERSIST_KEYS:
     if _k in st.session_state:
@@ -2646,23 +2708,9 @@ for _k in _PERSIST_KEYS:
             json.dumps(st.session_state[_k])
             _state_to_save[_k] = st.session_state[_k]
         except: pass
-_state_json = json.dumps(_state_to_save, ensure_ascii=False, default=str)
-_state_json_js = _state_json.replace('\\', '\\\\').replace('`', '\\`')
 
-st.components.v1.html(
-    '<script>'
-    '(function(){'
-    'try{'
-    'var d=`' + _state_json_js + '`;'
-    'localStorage.setItem("dashboard_pmo_state",d);'
-    'var u=new URL(window.parent.location.href);'
-    'u.searchParams.set("ls_data",encodeURIComponent(d));'
-    'window.parent.history.replaceState({},"",u.toString());'
-    '}catch(e){console.warn("save failed",e)}'
-    '})();'
-    '</script>',
-    height=0
-)
+if _state_to_save and _GH_TOKEN and _GH_REPO:
+    _gh_save(_GH_TOKEN, _GH_REPO, _state_to_save)
 
 # ── Botão Apresentar / Modo Edição no rodapé ─────────────────────────────────
 st.markdown("<hr class='section-sep'>", unsafe_allow_html=True)
