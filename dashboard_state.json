@@ -5,7 +5,7 @@
         "titulo": "Implantação MS Fabric — IDP 0,62 com DOWNStream em colapso (SPI=0,30)",
         "impacto": "O proj",
         "causa": "1. Treinamento Técnico de Data Analysts com SPI=0,27 e Data Transforms praticamente não iniciado. 2. Publicação da Política de Governança de Dados (Abr/2026) zerada — sem política publicada não há base normativa para o programa. 3. Domínios Indústria (55%) e Agropecuária (52%) com catálogos de dados e monitoramento incompletos. 4. Processo de Quality Gate definido mas sem aplicação nos domínios ativos.",
-        "plano": "1. [Imediato] PMO convoca reunião de crise com DataEX/HVAR até 27/Mai para nivelamento de capacidade — foco nos épicos 3 a 6 do DOWNStream. 2. [Até 02/Jun] William/Supply consolidar sessão jurídica única para fechamento simultâneo das duas minutas (Fabric + Implantação). 3. [Até 15/Jun] Rodrigo Evangelista entrega plano de sprint de equalização PRD/QAS com critérios de aceite definidos e aprovados pelo sponsor. 4. [Até 30/Jun] Iniciar trilha de capacitação de Data Analysts em blocos de 2 semanas — sem essa entrega o CoE não opera. 5. [Gate 30/Jun] Revisão executiva: se SPI não atingir 0,75, acionar plano de contingência de escopo reduzido para Go-Live."
+        "plano": "1. [Imediato] PMO convoca reunião de crise com DataEX/HVAR até 27/Mai para nivelamento de capacidade — foco nos épicos 3 a 6 do DOWNStrea"
       }
     ],
     "Cockpit_Engenharia": [
