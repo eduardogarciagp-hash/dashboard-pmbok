@@ -545,11 +545,18 @@ def _gh_save(token, repo, data):
     except Exception as e:
         return False, str(e)
 
-# Carrega estado na primeira abertura da sessão — sempre do GitHub
+# Carrega estado do GitHub — força reload se projetos_extras estiver vazio
 if 'ls_loaded' not in st.session_state:
     st.session_state.ls_loaded = False
 
-if not st.session_state.ls_loaded and _GH_TOKEN and _GH_REPO:
+# Força novo load se projetos_extras veio vazio mas há dados no GitHub
+_force_reload = (
+    st.session_state.ls_loaded and
+    _GH_TOKEN and _GH_REPO and
+    not st.session_state.get('projetos_extras')
+)
+
+if (not st.session_state.ls_loaded or _force_reload) and _GH_TOKEN and _GH_REPO:
     _saved = _gh_load(_GH_TOKEN, _GH_REPO)
     _saved = {k: v for k, v in _saved.items() if not k.startswith('_')}
     if _saved:
