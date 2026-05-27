@@ -46,6 +46,12 @@
         "impacto": "A Etapa 3 do CEO Digital Boardroom — entrega dos 4 painéis executivos — apresenta SPI=0,05 com apenas 4% concluído de 4,86% planejado. Esse é o pior índice de todo o portfólio. Com Go-Live previsto para 30/Nov/2026, o projeto tem menos de 7 meses para entregar 4 painéis executivos complexos, incluindo indicadores críticos da C-Suite. A não entrega compromete diretamente o pilar de 'Visibilidade Executiva Digital' do programa de transformação de dados da empresa, gerando risco reputacional do PMO perante a diretoria.",
         "causa": "1. CEO Digital Boardroom com SPI=0,37 puxando o índice do sub-projeto para baixo. 2. UPStream concluído (100%) mas sem transição estruturada para o DOWNStream — gap de handoff entre fases. 3. Capacidade técnica da consultoria Bridge não contratada formalmente para a fase de execução.",
         "plano": "1. [Até 28/Mai] Reunião de alinhamento com Bridge para definir MVP dos 4 painéis — escopo mínimo viável para Go-Live Nov/2026. 2. [Até 30/Mai] Nomear Product Owner interno do CEO Digital Boardroom com dedicação mínima de 40%. 3. [Até 05/Jun] Mapear os dados-fonte de cada painel e validar disponibilidade na camada analítica — sem dados não há painel. 4. [Jun/2026] Definir Go-Live parcial como meta: 2 painéis até Ago/2026, 2 painéis restantes até Nov/2026. 5. [Gate Jun/2026] Se aprovação Bridge não concluída, escalar ao CIO com análise de impacto formal."
+      },
+      {
+        "titulo": "",
+        "impacto": "",
+        "causa": "",
+        "plano": ""
       }
     ],
     "Demonstrativo_Financeiro": [
@@ -209,44 +215,24 @@
     ],
     "Esteira Analytics": [
       {
-        "nome": "Definição Entregas Q1",
-        "data": "2026-01-02",
+        "nome": "Entrevistas com lista de indicadores",
+        "data": "2026-03-11",
         "pct": 100
       },
       {
-        "nome": "Assinatura Contrato Estratégia",
-        "data": "2026-03-06",
+        "nome": "Kick-off",
+        "data": "2026-02-25",
         "pct": 100
       },
       {
-        "nome": "Go Live Estratégia de Dados",
-        "data": "2026-04-30",
+        "nome": "Prototipação do Painel",
+        "data": "2026-04-24",
         "pct": 100
       },
       {
-        "nome": "Go Live CEO Digital Boardroom",
-        "data": "2026-04-30",
-        "pct": 100
-      },
-      {
-        "nome": "Conclusão Entregas Q1",
-        "data": "2026-05-27",
-        "pct": 87
-      },
-      {
-        "nome": "Conclusão Entregas Q2",
-        "data": "2026-06-30",
-        "pct": 0
-      },
-      {
-        "nome": "Conclusão Entregas Q3",
-        "data": "2026-09-30",
-        "pct": 0
-      },
-      {
-        "nome": "Conclusão Entregas Q4",
-        "data": "2026-12-31",
-        "pct": 0
+        "nome": "Revisão Escopo GE",
+        "data": "2026-05-15",
+        "pct": 70
       }
     ]
   }
