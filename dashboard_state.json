@@ -44,14 +44,8 @@
       {
         "titulo": "Entregas Q2 — SPI=0,54 com escopo 'A Definir' e ausência de owner",
         "impacto": "As Entregas Q2 da Esteira Analytics (Abr–Jun/2026) têm SPI=0,54 com o único entregável listado como 'A Definir'. Com o encerramento do Q2 previsto para 30/Jun/2026, existe risco concreto de o quarter ser encerrado sem nenhuma entrega formal registrada. Isso representa perda de valor entregue no período e acúmulo de pressão sobre Q3 e Q4, que já têm seus próprios escopos indefinidos.",
-        "causa": "1. UPStream Esteira com SPI=0,50: o processo de definição de entregas Q2 não foi concluído dentro do prazo planejado. 2. Ausência de owner designado para as entregas Q2 — nenhum responsável formal por escopo, prazo e qualidade. 3. Backlog de demandas das áreas não foi priorizado para o período Q2, gerando vazio de planejamento.",
-        "plano": "1. [Até 27/Mai] Convocar sessão de escopo Q2 com todas as áreas demandantes — output: lista priorizada de no mínimo 3 entregas. 2. [Até 30/Mai] Nomear owner por entrega Q2 com comprometimento formal de prazo. 3. [Paralelo] Iniciar definição de entregas Q3 já nessa sessão — não repetir o mesmo erro no próximo quarter. 4. [Semanal] PMO monitora progresso Q2 com alerta vermelho ao sponsor se 30/Jun chegar sem entregas formalmente aceitas."
-      },
-      {
-        "titulo": "Estratégia de Dados e Digital Boardroom — IDP 0,51 com DOWNStream crítico",
-        "impacto": "O sub-projeto Estratégia de Dados e Digital Boardroom tem IDP=0,51 — realiza metade do trabalho planejado. O DOWNStream deste sub-projeto, que engloba o CEO Digital Boardroom, está com SPI=0,50 e Fim=Nov/2026. Se o ritmo não for corrigido, o encerramento do programa de Estratégia de Dados ficará incompleto, comprometendo a entrega do roadmap digital prometido para 2026.",
         "causa": "1. CEO Digital Boardroom com SPI=0,37 puxando o índice do sub-projeto para baixo. 2. UPStream concluído (100%) mas sem transição estruturada para o DOWNStream — gap de handoff entre fases. 3. Capacidade técnica da consultoria Bridge não contratada formalmente para a fase de execução.",
-        "plano": "1. Tratar o CEO Digital Boardroom como projeto independente com PMO dedicado a partir de Jun/2026. 2. Formalizar o handoff entre UPStream (concluído) e DOWNStream com ata de reunião e aceite do patrocinador. 3. Contrato Bridge: definir prazo limite de assinatura (05/Jun) com cláusula de penalidade por atraso no início. 4. Revisão mensal do IDP do sub-projeto com o sponsor — alerta se IDP não atingir 0,70 até Jul/2026."
+        "plano": "1. [Até 27/Mai] Convocar sessão de escopo Q2 com todas as áreas demandantes — output: lista priorizada de no mínimo 3 entregas. 2. [Até 30/Mai] Nomear owner por entrega Q2 com comprometimento formal de prazo. 3. [Paralelo] Iniciar definição de entregas Q3 já nessa sessão — não repetir o mesmo erro no próximo quarter. 4. [Semanal] PMO monitora progresso Q2 com alerta vermelho ao sponsor se 30/Jun chegar sem entregas formalmente aceitas."
       }
     ],
     "Demonstrativo_Financeiro": [
