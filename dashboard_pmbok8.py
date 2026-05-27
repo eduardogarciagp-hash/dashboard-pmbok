@@ -464,7 +464,8 @@ df_view = build_df(pd.concat(dfs, ignore_index=True)) if dfs else pd.DataFrame()
 # 7. PERSISTENCIA VIA GITHUB API
 # ──────────────────────────────────────────────────────────────────────────────
 _PERSIST_KEYS = ['gov_data', 'idp_override', 'proj_manual',
-                 'projetos_extras', 'kpi_upstream', 'kpi_downstream']
+                 'projetos_extras', 'kpi_upstream', 'kpi_downstream',
+                 'marcos_override']
 
 _GH_TOKEN = st.secrets.get('GITHUB_TOKEN', '')
 _GH_REPO  = st.secrets.get('GITHUB_REPO',  '')
@@ -542,14 +543,24 @@ if 'ls_loaded' not in st.session_state:
 
 if not st.session_state.ls_loaded and _GH_TOKEN and _GH_REPO:
     _saved = _gh_load(_GH_TOKEN, _GH_REPO)
-    # Ignora chaves de erro
     _saved = {k: v for k, v in _saved.items() if not k.startswith('_')}
     if _saved:
         for _k in _PERSIST_KEYS:
             if _k in _saved:
-                # Sobrescreve sempre com o valor salvo do GitHub
                 st.session_state[_k] = _saved[_k]
     st.session_state.ls_loaded = True
+
+# Lê marcos editados no JS via query_params (atualizado a cada 3s pelo JS)
+_qp_marcos = st.query_params.get('marcos_data', '')
+if _qp_marcos:
+    try:
+        import urllib.parse as _ulp2
+        _marcos_from_js = json.loads(_ulp2.unquote(_qp_marcos))
+        for _proj, _mlist in _marcos_from_js.items():
+            if _mlist:  # só atualiza se tiver marcos
+                st.session_state.marcos_override[_proj] = _mlist
+    except:
+        pass
 
 
 if 'modo_apresentacao' not in st.session_state:
@@ -769,8 +780,9 @@ n_projetos = len(idp_por_projeto_final)
 pct_media  = pct_media_calc
 
 # Upstream / Downstream — editáveis no sidebar
-if 'kpi_upstream'   not in st.session_state: st.session_state.kpi_upstream   = 0
-if 'kpi_downstream' not in st.session_state: st.session_state.kpi_downstream = 0
+if 'kpi_upstream'     not in st.session_state: st.session_state.kpi_upstream   = 0
+if 'kpi_downstream'   not in st.session_state: st.session_state.kpi_downstream = 0
+if 'marcos_override'  not in st.session_state: st.session_state.marcos_override = {}
 
 # KPI cards (primeira linha)
 c1, c2, c3, c4, c5 = st.columns(5)
@@ -928,35 +940,67 @@ for proj in PROJETOS_PORTFOLIO:
         ],
     }
 
-    # Busca marcos curados para este projeto; fallback para L2 se projeto não mapeado
-    marcos_def = MARCOS_CURADOS.get(proj)
-    if marcos_def:
+    # Marcos: usa session_state (salvo no GitHub) ou curados como default
+    _mo = st.session_state.marcos_override
+    if proj in _mo:
+        # Usa marcos salvos pelo usuário
         marcos = []
-        for md in marcos_def:
-            dt = pd.Timestamp(md["data"])
-            pct_m = md["pct"]
+        for md in _mo[proj]:
+            try:
+                dt = pd.Timestamp(md["data"]) if "data" in md else pd.Timestamp(
+                    md.get("termino_str", "2026-12-31"))
+            except:
+                dt = pd.Timestamp("2026-12-31")
+            pct_m    = float(md.get("pct", 0))
             concluido = pct_m >= 100
-            # Atrasado: % < 100 e data já passou
-            atrasado = (not concluido) and (dt.date() < date.today())
+            atrasado  = (not concluido) and (dt.date() < date.today())
             marcos.append({
-                "nome":      md["nome"],
+                "nome":      md.get("nome",""),
                 "termino":   int(dt.normalize().value // 1_000_000),
                 "baseline":  None,
-                "pct":       float(pct_m),
+                "pct":       pct_m,
                 "status":    "",
                 "resp":      "",
                 "nivel":     2,
                 "concluido": concluido,
                 "atrasado":  atrasado,
             })
-        df_miles = pd.DataFrame()  # não usado abaixo quando marcos já preenchido
+        df_miles = pd.DataFrame()
     else:
-        marcos = []
-        df_miles = df_p[
-            (df_p['nivel'] == 2) &
-            df_p['termino'].notna() &
-            (~df_p['nome'].isin(SKIP_NAMES))
-        ].head(8)
+        marcos_def = MARCOS_CURADOS.get(proj)
+        if marcos_def:
+            marcos = []
+            for md in marcos_def:
+                dt = pd.Timestamp(md["data"])
+                pct_m = md["pct"]
+                concluido = pct_m >= 100
+                atrasado = (not concluido) and (dt.date() < date.today())
+                marcos.append({
+                    "nome":      md["nome"],
+                    "termino":   int(dt.normalize().value // 1_000_000),
+                    "baseline":  None,
+                    "pct":       float(pct_m),
+                    "status":    "",
+                    "resp":      "",
+                    "nivel":     2,
+                    "concluido": concluido,
+                    "atrasado":  atrasado,
+                })
+            # Salva no override para persistir edições futuras
+            st.session_state.marcos_override[proj] = [
+                {"nome": m["nome"],
+                 "data": pd.Timestamp(m["termino"], unit="ms").strftime("%Y-%m-%d"),
+                 "pct":  m["pct"]}
+                for m in marcos
+            ]
+            df_miles = pd.DataFrame()
+        else:
+            marcos = []
+            df_miles = df_p[
+                (df_p['nivel'] == 2) &
+                df_p['termino'].notna() &
+                (~df_p['nome'].isin(SKIP_NAMES))
+            ].head(8)
 
     # Se marcos já foram preenchidos pelos curados, não sobrescrever
     if not marcos:
@@ -1374,6 +1418,24 @@ const PROJECTS       = {proj_json};
 const marcoTip       = document.getElementById('marco-tip');
 const HOJE_MS        = {hoje_ts};
 const MODO_APRESENTAR = {_modo_apres_js};
+
+function saveMarcos(){{
+  var out={{}};
+  PROJECTS.forEach(function(p){{
+    out[p.projeto]=p.marcos.map(function(m){{
+      var dt=new Date(m.termino);
+      var ds=dt.getUTCFullYear()+'-'+String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+String(dt.getUTCDate()).padStart(2,'0');
+      return {{nome:m.nome,data:ds,pct:m.pct}};
+    }});
+  }});
+  try{{
+    var enc=encodeURIComponent(JSON.stringify(out));
+    var url=new URL(window.parent.location.href);
+    url.searchParams.set('marcos_data',enc);
+    window.parent.history.replaceState({{}},\'\',url.toString());
+  }}catch(e){{}}
+}}
+setInterval(saveMarcos,3000);
 const ROW_H    = {row_h};
 const LABEL_W  = 200;
 
